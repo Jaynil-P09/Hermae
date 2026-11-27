@@ -62,7 +62,7 @@ Both models fit regularized logistic regression. One uses separation and DLR. Th
 
 The command exports per-candidate validation scores and ranks, an event-level comparison, and a summary with first-rank and top-three agreement. The paired first-rank differences use a bootstrap that resamples whole validation sky groups. Scores are uncalibrated. The test assignments remain reserved for a later evaluation.
 
-The [v1 split manifest](benchmark/split-v1.json) and [v1 validation report](benchmark/validation-v1.md) record the 150-event run. For the next experiment, audit candidate spectra and their targeting provenance, then compare redshift and FITS features as separate additions to the catalogue ranker. Evaluate Pröst on the same validation events and document any differences in the candidate pool. [DESI DR1 data](https://data.desi.lbl.gov/doc/releases/dr1/) · [Pröst](https://github.com/alexandergagliano/Prost)
+The [v1 split manifest](benchmark/split-v1.json) and [v1 validation report](benchmark/validation-v1.md) record the 150-event run.
 
 ### Spectroscopy coverage
 
@@ -74,6 +74,20 @@ The [v1 split manifest](benchmark/split-v1.json) and [v1 validation report](benc
 The [v1 spectroscopy audit](benchmark/spectroscopy-v1.md) covers DESI DR1 Main Survey bright and dark Redrock files. The command searches every nested NSIDE 64 pixel touching the validation cone plus the 1.5″ cross-match margin. It records missing archive files, failed requests, file checksums, raw positional matches, and coverage by candidate and event. Use `--offline` to replay from the archive cache.
 
 A usable row requires a galaxy classification, positive redshift and uncertainty, and zero Redrock and coadded-fibre warning flags. Shared or multiple nearby target IDs are ambiguous. Concordant bright and dark observations of the same target retain the row with the highest Redrock template-fit separation, `DELTACHI2`. The output preserves DESI targeting bitmasks and flags secondary targets. A missing secondary flag and an independently measured SN redshift are evidence to review when establishing provenance.
+
+### Pröst offset comparison
+
+Pröst 1.2.13 uses writable pandas arrays internally, so run it in a separate Python 3.12 environment.
+
+```powershell
+py -3.12 -m venv .cache/prost-env
+.cache/prost-env/Scripts/python -m pip install -r requirements-prost.txt
+.cache/prost-env/Scripts/python -m hermae.prost --run results/benchmark --split benchmark/split-v1.json --output results/benchmark/prost
+```
+
+The [v1 Pröst report](benchmark/prost-v1.md) compares upstream Pröst offset scoring on the same validation candidates used by nearest neighbour and DLR. The adapter supplies cached Tractor candidates to upstream shape sampling and association. It uses the reference notebook's offset prior and likelihood, orders candidates by their median posterior, and records the upstream Monte Carlo winner separately. Pröst's stock DECaLS query uses its own cuts and a photo-z join. [Pröst reference notebook](https://github.com/alexandergagliano/Prost/blob/main/docs/notebooks/associate.ipynb)
+
+The DESI Main Survey audit found no validation field with both a transient-template SN redshift and an unambiguous usable candidate redshift that passed the secondary-target screen. The next experiment is to test FITS image features on the frozen validation split. A redshift comparison needs a broader spectroscopy search and provenance review. [DESI DR1 data](https://data.desi.lbl.gov/doc/releases/dr1/)
 
 ## Release documentation
 

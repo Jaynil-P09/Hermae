@@ -1,0 +1,6 @@
+astro-prost==1.2.13
+astro-datalab==2.22.1
+astropy==7.2.4
+numpy==1.26.4
+pandas==2.3.3
+scipy==1.17.1
