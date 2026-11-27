@@ -82,13 +82,24 @@ def host(args, config):
     frame = read_frame(args.fits, args.hdu, mask_hdu=args.mask_hdu, ivar_hdu=args.ivar_hdu,
                        variance_hdu=args.variance_hdu)
     sn, x, y, coverage = sn_position(frame, args.ra, args.dec)
-    labels, signal, variance = detect(frame, config)
+    backend = None
+    if getattr(args, "detector", "classical") == "cnn":
+        from .galaxy import GalaxyDetector
+        backend = GalaxyDetector.load(args.galaxy_weights, args.device)
+    labels, signal, variance = detect(frame, config, backend)
     detections = measurements(frame, labels, signal, variance)
     ranked = rank_hosts(frame, detections, sn, x, y, args.radius) if coverage == "covered" else []
+    rank_info = None
+    if getattr(args, "ranker_weights", None):
+        from .ranker import rank_image_hosts
+        rank_info = rank_image_hosts(args.ranker_weights, args.device, frame, labels, signal, variance,
+                                     ranked, detections, x, y, backend)
     status = "host_proposed" if ranked else ("no_plausible_host_detected" if coverage == "covered"
                                              else "no_usable_coverage")
+    if rank_info and rank_info["review_required"]:
+        status = "multiple_plausible_hosts" if len(ranked) > 1 else "host_requires_review"
     summary = dict(
-        format_version=1, mode="known_position", status=status, detector="classical",
+        format_version=1, mode="known_position", status=status, detector="cnn" if backend else "classical",
         input=dict(path=str(args.fits.resolve()), sha256=digest, shape_yx=list(frame.science.shape),
                    band=frame.band, flux_units=frame.units, hdu=frame.hdu),
         sn=dict(ra_deg=args.ra, dec_deg=args.dec, x_px=x if np.isfinite(x) else None,
@@ -98,11 +109,18 @@ def host(args, config):
         detections=len(detections), candidates=len(ranked), provisional_host=ranked[0] if ranked else None,
         files=files,
     )
+    if backend:
+        summary["galaxy_checkpoint"] = dict(sha256=backend.checkpoint_sha256,
+                                            footprint_threshold=backend.footprint_threshold,
+                                            centre_threshold=backend.centre_threshold)
+    if rank_info:
+        summary["ranker"] = rank_info
     args.out.mkdir(exist_ok=True, parents=True)
     write_table(args.out / "detections.csv", detections, DETECTION_COLUMNS)
-    write_table(args.out / "hosts.csv", ranked, RANK_COLUMNS)
+    write_table(args.out / "hosts.csv", ranked, RANK_COLUMNS + (("ranker_score",) if rank_info else ()))
     fits.writeto(args.out / "segmentation.fits", labels, frame.wcs.to_header(), overwrite=True)
-    render(frame, labels, x, y, ranked, external, args.out / "overlay.png")
+    render(frame, labels, x, y, ranked, external, args.out / "overlay.png",
+           "CNN galaxy detection" if backend else "Classical source detection")
     if external:
         external["v2_provisional_host"] = ranked[0] if ranked else None
         if ranked:

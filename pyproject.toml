@@ -18,5 +18,8 @@ dependencies = [
 [project.scripts]
 hermae = "hermae.__main__:main"
 
+[project.optional-dependencies]
+ml = ["torch==2.10.0"]
+
 [tool.setuptools.packages.find]
 include = ["hermae*"]

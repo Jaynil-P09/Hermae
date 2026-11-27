@@ -32,7 +32,7 @@ def read_frame(path, science_hdu=0, *, mask_hdu=None, ivar_hdu=None, variance_hd
         if values.ndim != 2 or min(values.shape) < 2:
             raise ValueError("Select a two-dimensional science HDU.")
         band = str(science.header.get("BANDS", science.header.get("FILTER", ""))).strip().lower()
-        if band and band.split()[0] != "r":
+        if band and band.split()[0] not in {"r", "zr", "ztf_r"}:
             raise ValueError(f"Expected an r-band image, got {band!r}.")
         # Passing the HDU list retains any WCS lookup tables carried in the FITS.
         wcs = WCS(science.header, fobj=hdus).celestial
@@ -66,7 +66,17 @@ def read_frame(path, science_hdu=0, *, mask_hdu=None, ivar_hdu=None, variance_hd
                 variance_hdu = "VARIANCE"
         valid = np.isfinite(values)
         if mask_hdu is not None:
-            valid &= companion(mask_hdu) == 0
+            mask = companion(mask_hdu)
+            mask_header = hdus[mask_hdu].header
+            if (mask_header.get("ORIGIN") == "Zwicky Transient Facility"
+                    and "BIT01" in mask_header and "BIT11" in mask_header
+                    and "DETECTION" in mask_header.comments["BIT01"]
+                    and "SOURCE POSITION" in mask_header.comments["BIT11"]):
+                # ZTF's detection flags identify astrophysical signal in good pixels.
+                finite = np.isfinite(mask)
+                valid &= finite & ((np.where(finite, mask, 0).astype(np.int32) & 6141) == 0)
+            else:
+                valid &= mask == 0
         variance = None
         key = ivar_hdu if ivar_hdu is not None else variance_hdu
         if key is not None:

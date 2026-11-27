@@ -144,13 +144,19 @@ def merge_patches(patches, shape):
     return inverse.reshape(height, width).astype(np.int32)
 
 
-def detect(frame, config):
+def detection_inputs(frame, config):
     sky, noise = background(frame, config.background_box)
     signal = np.where(frame.valid, frame.science - sky, 0.)
     variance = np.square(noise)
     if frame.variance is not None:
         variance = np.where(frame.valid, np.maximum(variance, frame.variance), variance)
-    patches = find_patches(frame, config, signal, np.sqrt(variance))
+    return signal, variance
+
+
+def detect(frame, config, backend=None):
+    signal, variance = detection_inputs(frame, config)
+    patches = (find_patches(frame, config, signal, np.sqrt(variance)) if backend is None
+               else backend.patches(frame, config, signal, variance))
     return merge_patches(patches, frame.science.shape), signal, variance
 
 

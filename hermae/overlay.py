@@ -9,7 +9,7 @@ import numpy as np
 from scipy import ndimage
 
 
-def render(frame, labels, x, y, hosts, comparison, path):
+def render(frame, labels, x, y, hosts, comparison, path, title="Classical source detection"):
     canvas = "#0e1722"
     ink = "#eaf4fb"
     valid_data = frame.science[frame.valid]
@@ -64,7 +64,7 @@ def render(frame, labels, x, y, hosts, comparison, path):
             legend = axes[1].legend(loc="lower left", facecolor=canvas, edgecolor="#465563", fontsize=9)
             for label in legend.get_texts():
                 label.set_color(ink)
-        fig.suptitle("Hermae v2 · Classical source detection", fontsize=20, color=ink, fontweight="bold")
+        fig.suptitle(f"Hermae v2 · {title}", fontsize=20, color=ink, fontweight="bold")
         fig.savefig(path, dpi=150, facecolor=canvas)
     finally:
         plt.close(fig)
