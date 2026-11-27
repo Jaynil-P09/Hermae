@@ -4,13 +4,17 @@
 
 The groundwork is complete. The catalogue benchmark uses 150 real ZTF SN Ia DR2 events in Legacy Surveys DR10 south. The frozen cohort contains 98 training, 26 validation, and 26 test events. The comparison includes nearest neighbour, Tractor DLR, an offset-only Pröst run, and a logistic catalogue model. The initial DESI audit found insufficient overlap with transient-template redshifts. [Frozen split](split-v1.json) · [Catalogue validation](validation-v1.md) · [Pröst](prost-v1.md) · [Spectroscopy audit](spectroscopy-v1.md)
 
-## Phase 1 — Test FITS image features
+## Phase 1 — Build the catalogue and image models
 
-Completed on the frozen v1 cohort. [Image validation report](image-v1.md) · [FITS input audit](image-inputs-v1.csv)
+### 1A. Catalogue ranker
+
+Train a catalogue model on candidate separation, DLR, brightness, colour, shape, and crowding. The v1 logistic regression provides the comparison point. Test independent redshifts in Phase 2 if the coverage supports an ablation. [Catalogue validation](validation-v1.md)
+
+### 1B. Image model and fusion
 
 Fetch a DR10 south r-band science image and inverse-variance map for each training and validation field. Verify WCS alignment and log missing or failed cutouts. Derive simple candidate-centred features from masked pixel apertures at the galaxy centre and toward the SN. Retain missing measurements and the full catalogue candidate pool.
 
-Compare catalogue-only and catalogue-plus-image logistic rankers on the same validation events, using identical training events, labels, and ranking rules. Report coverage, top-1 and top-3 agreement, and the paired top-1 change with a sky-group bootstrap interval. Phase completion requires versioned code and results, a runnable command, an offline replay, and a position/coverage check. The test split stays reserved.
+Use the aperture features as an interpretable image baseline. Train a compact convolutional network on r-band FITS stamps centred on the candidate, the SN, and their midpoint. Compare an image-only model, a matched catalogue control, and a model that fuses the CNN with catalogue features. Use the same frozen validation events, training labels, and candidate pool. Report coverage, top-1 and top-3 agreement, and the paired top-1 change with a sky-group bootstrap interval. The test split stays reserved. [Aperture validation](image-v1.md) · [FITS input audit](image-inputs-v1.csv)
 
 ## Phase 2 — Broaden the spectroscopy audit
 
