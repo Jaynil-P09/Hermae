@@ -110,6 +110,18 @@ Both rankers keep the frozen event assignments, training labels, and candidate s
 
 Open `results/benchmark/overlays/gallery.md` to browse the validation images. Each image shows the top three candidates for DLR, the catalogue model, and the catalogue-plus-FITS model. The final panel shows the apertures and measured features for the image model's first-ranked candidate. The gold star marks the published reference. When the r-band input is missing, the figure displays an available alternate band for orientation and identifies the model's imputed image inputs. Rendering uses the cached FITS files and checks their hashes. It reads the existing ranks and does not refit a model.
 
+### Pixel CNN and catalogue fusion
+
+```powershell
+.venv/Scripts/python -m pip install -r requirements-cnn.txt
+.venv/Scripts/python -m hermae.cnn
+.venv/Scripts/python -m hermae.overlays --cnn
+```
+
+The [v1 CNN report](benchmark/cnn-v1.md) compares a pixel-only CNN, a matched catalogue control, and their fusion. Two shared convolutional layers read 21 × 21 r-band stamps centred on the candidate, the SN, and their midpoint. The fused score adds the learned image term to a catalogue score. All three models optimize the same per-event ranking loss and use the same frozen fields and candidates. The original catalogue logistic and measured-aperture models provide separate reference scores.
+
+The command writes model weights and catalogue preprocessing parameters to `results/benchmark/cnn/rankers.pt`. It also exports training loss, validation scores and ranks, and the CNN term in each fused score. The `--cnn` overlays show the stamp locations and score components. Add `--event ZTF20aavxqej` to render one field.
+
 ## Release documentation
 
 - [ZTF SN Ia DR2 overview](https://doi.org/10.1051/0004-6361/202450388) and [release reader](https://github.com/ZwickyTransientFacility/ztfcosmo/blob/main/ztfcosmo/io.py)

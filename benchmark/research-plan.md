@@ -16,6 +16,8 @@ Fetch a DR10 south r-band science image and inverse-variance map for each traini
 
 Use the aperture features as an interpretable image baseline. Train a compact convolutional network on r-band FITS stamps centred on the candidate, the SN, and their midpoint. Compare an image-only model, a matched catalogue control, and a model that fuses the CNN with catalogue features. Use the same frozen validation events, training labels, and candidate pool. Report coverage, top-1 and top-3 agreement, and the paired top-1 change with a sky-group bootstrap interval. The test split stays reserved. [Aperture validation](image-v1.md) · [FITS input audit](image-inputs-v1.csv)
 
+Completed on the frozen v1 cohort. The measured-aperture model still leads the validation comparison. [CNN validation](cnn-v1.md)
+
 ## Phase 2 — Broaden the spectroscopy audit
 
 Search public spectroscopic releases beyond DESI Main Survey bright and dark, beginning with other DESI programmes and SDSS where coverage applies. Track candidate match ambiguity, uncertainties, quality flags, reference frames, and target-selection provenance. Admit SN-side redshifts only when derived from the transient independently of its assigned host. Run a redshift comparison on the same covered validation events if the evidence supports it. Otherwise report the coverage constraints and keep the redshift result exploratory.
