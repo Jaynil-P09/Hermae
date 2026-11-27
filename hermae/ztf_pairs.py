@@ -6,6 +6,8 @@ import csv
 import io
 import json
 from pathlib import Path
+from time import sleep
+from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
@@ -18,8 +20,14 @@ ALERCE = "https://api.alerce.online/ztf/v1/objects"
 
 
 def get(url):
-    with urlopen(url, timeout=30) as response:
-        return response.read()
+    for pause in (.4, 1.4, None):
+        try:
+            with urlopen(url, timeout=30) as response:
+                return response.read()
+        except HTTPError as exc:
+            if exc.code not in (429, 500, 502, 503, 504) or pause is None:
+                raise
+            sleep(pause)
 
 
 def field_archive(ra, dec, peak):
@@ -63,7 +71,8 @@ def pairs_for(event, row, peak, out):
     alerts = [r for r in detections if r["fid"] == 2 and int(r["isdiffpos"]) > 0 and r["rb"] >= .55
               and abs(r["mjd"] + 2400000.5 - peak) <= 55]
     alerts.sort(key=lambda a: (a["magpsf"], abs(a["mjd"] + 2400000.5 - peak)))
-    for alert in alerts:
+    last_error = None
+    for alert in alerts[:6]:
         matches = [r for r in archive if abs(float(r["obsjd"]) - (alert["mjd"] + 2400000.5)) < .00015
                    and 0 < float(r["seeing"]) < 4]
         for rec in matches:
@@ -74,17 +83,25 @@ def pairs_for(event, row, peak, out):
                 continue
             folder = out / event
             folder.mkdir(exist_ok=True)
-            reference = exposure(folder, early[0], ra, dec)
-            science = exposure(folder, rec, ra, dec)
+            try:
+                reference = exposure(folder, early[0], ra, dec)
+                science = exposure(folder, rec, ra, dec)
+            except OSError as exc:
+                last_error = exc
+                continue
             pairs = [dict(kind="positive", event=event, reference=reference, science=science,
                           alert_id=str(alert["candid"]), alert_ra=alert["ra"], alert_dec=alert["dec"],
                           host_ra=row["host_ra"], host_dec=row["host_dec"])]
             quiet = [r for r in early[1:] if float(r["obsjd"]) > float(early[0]["obsjd"]) + .1]
             if quiet:
-                pairs.append(dict(kind="pre_event_control", event=event, reference=reference,
-                                  science=exposure(folder, quiet[0], ra, dec)))
+                try:
+                    pairs.append(dict(kind="pre_event_control", event=event, reference=reference,
+                                      science=exposure(folder, quiet[0], ra, dec)))
+                except OSError as exc:
+                    pairs[0]["control_error"] = str(exc)
             return pairs
-    raise ValueError("No public r-band alert exposure with a matching pre-event quadrant was found.")
+    raise ValueError(f"No usable public r-band alert pair: {last_error}" if last_error else
+                     "No public r-band alert exposure with a matching pre-event quadrant was found.")
 
 
 def main():

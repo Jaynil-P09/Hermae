@@ -21,7 +21,7 @@ def records(path):
 
 
 class Benchmark:
-    def __init__(self, root):
+    def __init__(self, root, *, include_reserved=False):
         self.root = root.resolve()
         audit = json.loads((self.root / "benchmark/v1-preservation.json").read_text(encoding="utf-8"))
         path = self.root / audit["split_manifest"]["path"]
@@ -37,11 +37,14 @@ class Benchmark:
         for name, path in paths.items():
             if sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest() != audit["frozen_benchmark_sha256"][name]:
                 raise ValueError(f"The frozen benchmark table has changed: {name}")
-        self.events = {row["event_id"]: row for row in records(paths["events.csv"])}
-        self.references = {row["event_id"]: row for row in records(paths["evaluation.csv"])}
+        allowed = {event for event, split in self.splits.items() if include_reserved or split in ("train", "validation")}
+        self.events = {row["event_id"]: row for row in records(paths["events.csv"]) if row["event_id"] in allowed}
+        self.references = {row["event_id"]: row for row in records(paths["evaluation.csv"])
+                           if row["event_id"] in allowed}
         self.sources = {}
         for row in records(paths["candidates.csv"]):
-            self.sources.setdefault(row["event_id"], []).append(row)
+            if row["event_id"] in allowed:
+                self.sources.setdefault(row["event_id"], []).append(row)
         path = self.root / audit["data_paths"]["fit_manifest"]
         if digest(path) != audit["image_audit_sha256"]:
             raise ValueError("The frozen FITS manifest does not match its audit.")
