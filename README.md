@@ -11,6 +11,10 @@ py -3.13 -m venv .venv
 .venv/Scripts/python -m pip install -e .
 ```
 
+Install the optional neural models with `.venv/Scripts/python -m pip install -e ".[ml]"`.
+Use `--device cuda` with a CUDA-enabled PyTorch installation. The classical
+detector, subtraction baseline, and dashboard can run without PyTorch.
+
 ## Find a provisional host
 
 ```powershell
@@ -34,6 +38,13 @@ The provisional ranking divides sky separation by the directional size from the 
 
 A field with an SN outside coverage retains its full-frame detections and returns no host candidates. A covered field with an empty cone reports `no_plausible_host_detected`.
 
+Add `--ranker-weights results/phase3-classical/image_only.pt` to use the
+release host ranker with classical detections. For U-Net detection, use
+`--detector cnn --galaxy-weights results/phase2/galaxy.pt`. Pair those U-Net
+weights with `results/phase3/image_only.pt` if you also want neural ranking.
+Ranker scores are uncalibrated. The run summary records the review threshold and
+returns `multiple_plausible_hosts` when several candidates need review.
+
 ## Reproduce the development example
 
 ```powershell
@@ -45,7 +56,38 @@ $fits = Join-Path $v1 (Join-Path '.cache/image_ablation' $image.cache_file)
 .venv/Scripts/hermae.exe host --fits $fits --ivar-hdu 1 --ra $sn.ra --dec $sn.dec --out "results/$event" --v1 $v1 --event $event
 ```
 
-The comparison path verifies the FITS and the preserved split and benchmark hashes. It accepts development events only and writes results to the v2 checkout. See the [development run record](docs/development-run.md) and [remaining phases](docs/roadmap.md).
+The comparison path verifies the FITS and the preserved split and benchmark hashes. It accepts development events only and writes results to the v2 checkout. See the [development run record](docs/development-run.md) and [project roadmap](docs/roadmap.md).
+
+## Search two epochs
+
+`search` uses the earlier exposure for source measurements and host ranking.
+Supply two r-band FITS images with overlapping celestial WCS. A PSF FWHM in
+arcseconds is required for each exposure. It comes from the `SEEING` header or
+the `--reference-fwhm` and `--science-fwhm` flags. Explicit science HDU names or
+indices are supported. Named `MASK`, `IVAR` and `VARIANCE` planes carry
+coverage and noise across alignment and subtraction.
+
+```powershell
+$pair = (Get-Content results/ztf-development/manifest.json -Raw | ConvertFrom-Json).pairs |
+  Where-Object { $_.event -eq 'ZTF19aartuli' -and $_.kind -eq 'positive' }
+.venv/Scripts/hermae.exe search --reference $pair.reference.path --science $pair.science.path --out results/example-search --ranker-weights results/phase3-classical/image_only.pt
+.venv/Scripts/hermae.exe dashboard --run results/example-search
+.venv/Scripts/hermae.exe dashboard --run results/ZTF18abvtiko
+```
+
+Open the generated `dashboard.html` directly in a browser. It contains the
+original field or aligned image triplet, sortable detection tables, and
+reference-frame host results for each surviving transient. `difference.fits`
+contains the signed residual, coverage mask and variance estimate. Add
+`--transient-weights results/phase4/transient.pt` to try the experimental CNN
+filter. The difference detections are transient candidates pending independent
+classification.
+
+## Train and evaluate
+
+The training commands, development results and known limitations are in the
+[model and pair-search notes](docs/models.md). The [release report](docs/release.md)
+records the reserved evaluations and points to the local release bundle.
 
 ```powershell
 .venv/Scripts/python -m unittest discover -s tests -v
