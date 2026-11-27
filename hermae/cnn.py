@@ -43,9 +43,14 @@ def pixel_stamps(image, valid, centres):
     return np.stack((np.where(mask, image[y, x], 0.), mask), axis=-3).astype("float32")
 
 
+def stamp_centres(centres, sn):
+    return np.stack((centres, np.broadcast_to(sn, centres.shape), (centres + sn) / 2), axis=1)
+
+
 def load_stamps(images, cache, events, candidates):
-    audit = pd.read_csv(images / "image_inputs.csv").set_index("event_id", verify_integrity=True)
-    if set(audit.index) != set(events.event_id) or not audit.status.isin(["ok", "no_r_band_weight"]).all():
+    audit = pd.read_csv(images / "image_inputs.csv").set_index("event_id")
+    if (not audit.index.is_unique or set(audit.index) != set(events.event_id)
+            or not audit.status.isin(["ok", "no_r_band_weight"]).all()):
         raise ValueError("Image audit must cover exactly the verified training and validation fields.")
     if not np.allclose(audit.pixel_scale_arcsec.to_numpy(), PIX_SCALE, rtol=0, atol=1e-6):
         raise ValueError("CNN v1 requires 0.262″ per pixel.")
@@ -76,7 +81,7 @@ def load_stamps(images, cache, events, candidates):
         scaled = np.arcsinh((image - sky) / noise) / 4.
         centres = np.column_stack(wcs.world_to_pixel(SkyCoord(pool.ra.to_numpy(),
                                                              pool.dec.to_numpy(), unit="deg")))
-        locations = np.stack((centres, np.broadcast_to(sn, centres.shape), (centres + sn) / 2), axis=1)
+        locations = stamp_centres(centres, sn)
         pixels[pool.index] = pixel_stamps(scaled, valid, locations)
     return torch.from_numpy(pixels)
 
@@ -164,14 +169,14 @@ def run_benchmark(run, images, cache, manifest, output):
     pixels = load_stamps(images, cache, events, candidates)
     coverage = pixels[:, 0, 1].mean(dim=(-2, -1)).ge(0.5)
     val = candidates.loc[candidates.event_id.isin(val_ids), [*KEYS, "separation_arcsec"]].copy()
-    val["cnn_has_pixels"] = coverage[val.index.to_numpy()].numpy()
-    summary = pd.read_csv(images / "image_validation.csv").set_index("event_id", verify_integrity=True)
-    if set(summary.index) != val_ids:
+    val["cnn_has_pixels"] = coverage[val.index.to_numpy(copy=True)].numpy()
+    summary = pd.read_csv(images / "image_validation.csv").set_index("event_id")
+    if not summary.index.is_unique or set(summary.index) != val_ids:
         raise ValueError("Aperture benchmark validation events differ from the frozen split.")
     summary = summary.sort_index()
-    prior = pd.read_csv(images / "image_rankings.csv").set_index(KEYS, verify_integrity=True)
+    prior = pd.read_csv(images / "image_rankings.csv").set_index(KEYS)
     expected = pd.MultiIndex.from_frame(val[KEYS])
-    if len(prior) != len(val) or not prior.index.difference(expected).empty:
+    if not prior.index.is_unique or len(prior) != len(val) or not prior.index.difference(expected).empty:
         raise ValueError("Aperture benchmark rankings differ from the frozen validation pool.")
 
     imputer, scaler = prep.steps[0][1], prep.steps[1][1]
@@ -185,7 +190,7 @@ def run_benchmark(run, images, cache, manifest, output):
         model, losses = fit(mode, table, pixels, coverage, fields)
         logs.extend(dict(model=mode, epoch=i, training_loss=loss) for i, loss in enumerate(losses, 1))
         checkpoint["models"][mode] = model.state_dict()
-        indices = val.index.to_numpy()
+        indices = val.index.to_numpy(copy=True)
         chunks = []
         with torch.inference_mode():
             for chunk in np.array_split(indices, max(1, int(np.ceil(len(indices) / 256)))):
