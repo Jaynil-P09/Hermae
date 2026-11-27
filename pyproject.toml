@@ -23,3 +23,6 @@ ml = ["torch==2.10.0"]
 
 [tool.setuptools.packages.find]
 include = ["hermae*"]
+
+[tool.setuptools.package-data]
+hermae = ["dashboard.html"]

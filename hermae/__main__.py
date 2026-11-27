@@ -46,7 +46,18 @@ def main():
     pair.add_argument("--ranker-weights", type=Path)
     pair.add_argument("--transient-weights", type=Path)
     pair.add_argument("--device", default="cpu")
+    view = commands.add_parser("dashboard", help="build an offline HTML view from saved run outputs")
+    view.add_argument("--run", required=True, type=Path)
+    view.add_argument("--out", type=Path)
     args = parser.parse_args()
+    if args.command == "dashboard":
+        from .dashboard import dashboard
+        try:
+            path = dashboard(args.run, args.out)
+        except (OSError, ValueError, KeyError) as exc:
+            view.exit(1, f"hermae: {exc}\n")
+        print(f"Dashboard written to {path}")
+        return
     if args.command == "search":
         if not (0 < args.radius <= 648000 and 0 < args.transient_sigma < float("inf")):
             pair.error("Use finite, positive thresholds and a valid radius.")

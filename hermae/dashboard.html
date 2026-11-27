@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hermae | @@TITLE@@</title>
+<style>
+  :root { color-scheme:dark; font:16px/1.5 system-ui,sans-serif; background:#0b1420; color:#eaf3fb; }
+  body { max-width:1160px; margin:0 auto; padding:clamp(14px,4vw,36px); }
+  header { display:flex; flex-wrap:wrap; align-items:end; justify-content:space-between; gap:12px; margin-bottom:22px; }
+  h1,h2,p,figure { margin:0; } h1 { font-size:clamp(24px,5vw,36px); }
+  h2 { font-size:20px; margin-bottom:12px; }
+  #status,#host-status { color:#c4ee9b; font-weight:650; }
+  #counts,figcaption,label { color:#c2d2de; }
+  section,figure { border:1px solid #354859; background:#111d2a; border-radius:12px; overflow:hidden; margin-bottom:16px; }
+  section { padding:16px; } figure img { width:100%; display:block; } figcaption { padding:10px 14px; }
+  .scroll { overflow:auto; max-height:430px; }
+  table { width:100%; min-width:580px; border-collapse:collapse; font:14px/1.45 ui-monospace,monospace; }
+  th,td { padding:8px 12px; text-align:left; border-bottom:1px solid #354859; white-space:nowrap; }
+  th { position:sticky; top:0; background:#182939; }
+  tr:hover td { background:#182939; }
+  button,select { background:#172a3c; color:#eaf3fb; border:1px solid #516777; border-radius:5px;
+    padding:6px 10px; font:inherit; }
+  th button { background:none; border:none; padding:0; text-align:left; cursor:pointer; }
+  button:focus-visible,select:focus-visible { outline:2px solid #a6dff5; outline-offset:2px; }
+  .toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:10px; }
+</style>
+<header>
+  <div><h1>@@TITLE@@</h1><p id="workflow"></p></div>
+  <div><p id="status"></p><p id="counts"></p></div>
+</header>
+<main>
+  <figure id="overview"></figure>
+  <section><div class="toolbar"><label for="tables">Table</label><select id="tables"></select></div>
+    <div id="rows" class="scroll"></div></section>
+  <section id="host" hidden>
+    <div class="toolbar"><label for="transient">Host result for transient</label><select id="transient"></select>
+      <p id="host-status"></p></div>
+    <figure id="host-image"></figure><div id="host-rows" class="scroll"></div>
+  </section>
+</main>
+<script type="application/json" id="run">@@DATA@@</script>
+<script>
+  const data = JSON.parse(document.querySelector("#run").textContent);
+  const el = id => document.getElementById(id);
+  const node = (tag,text) => { const n = document.createElement(tag); n.textContent = text; return n; };
+  const state = value => value.replaceAll("_"," ").replace(/^./, first => first.toUpperCase());
+  const names = {"ra_deg":"RA (°)", "dec_deg":"Dec (°)", "separation_arcsec":"Separation (″)",
+    "x_px":"x (px)", "y_px":"y (px)", "peak_sigma":"Peak (σ)", "ranker_score":"Ranker score",
+    "classifier_score":"Classifier score", "size_scaled_offset":"Size-scaled offset"};
+  const pair = data.mode === "pair_search";
+  el("workflow").textContent = pair ? "Image-pair search" : "Known-position host search";
+  el("status").textContent = state(data.status);
+  el("counts").textContent = pair
+    ? `${data.counts.detections} residuals · ${data.counts.candidates} surviving`
+    : `${data.counts.detections} detections · ${data.counts.candidates} host candidates`;
+  function overlay(target, url, alt) {
+    target.replaceChildren();
+    if (url) { const img = document.createElement("img"); img.src = url; img.alt = alt; target.append(img); }
+    else { target.append(node("figcaption","No image available for this run.")); }
+  }
+  function numeric(value) { return value.trim() && Number.isFinite(Number(value)); }
+  function table(target, rows, sorted="", direction=1) {
+    target.replaceChildren();
+    if (!rows.length) { target.append(node("p","No rows in this result.")); return; }
+    const columns = Object.keys(rows[0]);
+    const grid = document.createElement("table"), head = grid.createTHead().insertRow();
+    for (const col of columns) {
+      const th = document.createElement("th"), button = node("button",names[col] || state(col));
+      th.scope = "col"; button.type = "button";
+      if (sorted === col) th.setAttribute("aria-sort", direction === 1 ? "ascending" : "descending");
+      button.addEventListener("click", () => {
+        table(target, rows, col, sorted === col ? -direction : 1);
+        target.querySelector(`th:nth-child(${columns.indexOf(col)+1}) button`).focus();
+      });
+      th.append(button); head.append(th);
+    }
+    const ordered = sorted ? [...rows].sort((a,b) => direction * (
+      numeric(a[sorted]) && numeric(b[sorted]) ? Number(a[sorted])-Number(b[sorted]) :
+        a[sorted].localeCompare(b[sorted],undefined,{numeric:true}))) : rows;
+    const body = grid.createTBody();
+    for (const row of ordered) {
+      const tr = body.insertRow();
+      for (const col of columns) {
+        const val = row[col], cell = tr.insertCell();
+        cell.textContent = numeric(val) && val.includes(".")
+          ? Number(val).toLocaleString(undefined,{maximumSignificantDigits:8,useGrouping:false}) : val || "—";
+        if (val) cell.title = val;
+      }
+    }
+    target.append(grid);
+  }
+  overlay(el("overview"),data.image,data.overlay_alt);
+  const tabs = el("tables");
+  for (const name of Object.keys(data.tables)) tabs.append(node("option",name));
+  tabs.onchange = () => table(el("rows"),data.tables[tabs.value]);
+  tabs.onchange();
+  const transient = el("transient");
+  for (const key of Object.keys(data.hosts)) transient.append(node("option",key));
+  if (transient.options.length) {
+    el("host").hidden = false;
+    transient.onchange = () => {
+      const run = data.hosts[transient.value];
+      el("host-status").textContent = state(run.status);
+      overlay(el("host-image"),run.image,"Reference image with host footprints and the transient position.");
+      table(el("host-rows"),run.table);
+    };
+    transient.onchange();
+  }
+</script>
+</html>
