@@ -63,7 +63,7 @@ def ranker(columns, features, target, weights):
     return estimator
 
 
-def compare(run, manifest):
+def compare(run, manifest, extra_features=None):
     assignment = pd.DataFrame(manifest["assignments"]).set_index("event_id")
     files = input_hashes(run)
     if files != manifest["source_sha256"]:
@@ -82,6 +82,16 @@ def compare(run, manifest):
     features = pd.concat([catalogue_features(field)
                           for _, field in candidates.groupby("event_id", sort=False)])
     rows = candidates.loc[candidates.in_baseline_cone].copy()
+    methods = FEATURES.copy()
+    if extra_features is not None:
+        keys = ["event_id", "source_id"]
+        expected = pd.MultiIndex.from_frame(rows[keys])
+        extra = extra_features.set_index(keys)
+        if (not extra.index.is_unique or len(extra) != len(expected)
+                or len(expected.difference(extra.index)) or not len(extra.columns)):
+            raise ValueError("Image features must cover exactly the frozen train and validation candidates.")
+        features = features.join(extra.reindex(expected).set_axis(rows.index))
+        methods["image"] = [*FEATURES["catalogue"], *extra.columns]
     training = rows.loc[rows.event_id.isin(train_eval.index[train_eval[retrieved].eq(True)])].copy()
     in_event = training.groupby("event_id").source_id.transform("size")
     training = training.loc[in_event > 1]
@@ -93,7 +103,7 @@ def compare(run, manifest):
     if val_rows.empty:
         raise ValueError("The validation split has no baseline-cone candidates.")
     scored = val_rows[["event_id", "source_id", "separation_arcsec"]].copy()
-    for method, columns in FEATURES.items():
+    for method, columns in methods.items():
         estimator = ranker(columns, features.loc[training.index], target, weights)
         score = f"{method}_score"
         rank = f"{method}_rank"

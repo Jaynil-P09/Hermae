@@ -75,3 +75,60 @@ def fetch_images(cache, events, radius, workers):
             if record["status"] != "ok" or len(records) % 10 == 0 or len(records) == len(events):
                 print(f"Images {len(records)}/{len(events)} {record['event_id']} {record['status']}", flush=True)
     return pd.DataFrame(records)
+
+
+PIXEL_FEATURES = ["image_core", "image_envelope", "image_sn_to_core", "image_bridge_contrast"]
+
+
+def aperture(image, valid, x, y, inner, outer):
+    """Mean pixel values in circular apertures or annuli, with a coverage threshold."""
+    pad = int(np.ceil(outer)) + 1
+    grid_y, grid_x = np.mgrid[-pad:pad + 1, -pad:pad + 1]
+    px = np.rint(x).astype(int)[:, None, None] + grid_x
+    py = np.rint(y).astype(int)[:, None, None] + grid_y
+    distance2 = (px - x[:, None, None]) ** 2 + (py - y[:, None, None]) ** 2
+    region = (distance2 >= inner**2) & (distance2 <= outer**2)
+    inside = (px >= 0) & (py >= 0) & (px < image.shape[1]) & (py < image.shape[0])
+    safe_x = np.clip(px, 0, image.shape[1] - 1)
+    safe_y = np.clip(py, 0, image.shape[0] - 1)
+    mask = region & inside & valid[safe_y, safe_x]
+    total = region.sum(axis=(1, 2))
+    good = mask.sum(axis=(1, 2))
+    flux = np.where(mask, image[safe_y, safe_x], 0).sum(axis=(1, 2))
+    measured = (total > 0) & (good >= 0.8 * total)
+    return np.divide(flux, good, out=np.full(len(x), np.nan), where=measured)
+
+
+def pixel_features(image, valid, wcs, event, candidates, scale):
+    """Measure local light using only candidate and transient coordinates."""
+    result = candidates[["event_id", "source_id"]].copy()
+    result[PIXEL_FEATURES] = np.nan
+    if not valid.any() or candidates.empty:
+        return result
+    sn_x, sn_y = wcs.world_to_pixel(SkyCoord(event.ra, event.dec, unit="deg"))
+    yy, xx = np.ogrid[:image.shape[0], :image.shape[1]]
+    valid = valid & (np.hypot(xx - sn_x, yy - sn_y) * scale > 1.4)
+    if not valid.any():
+        return result
+    sky = np.median(image[valid])
+    noise = 1.4826 * np.median(np.abs(image[valid] - sky))
+    if not np.isfinite(noise) or noise <= 0:
+        return result
+    flux = (image - sky) / noise
+    coords = SkyCoord(candidates.ra.to_numpy(), candidates.dec.to_numpy(), unit="deg")
+    x, y = wcs.world_to_pixel(coords)
+    core = aperture(flux, valid, x, y, 0, 0.8 / scale)
+    envelope = aperture(flux, valid, x, y, 2 / scale, 4.5 / scale)
+    sn = aperture(flux, valid, np.array([sn_x]), np.array([sn_y]), 1.8 / scale, 3 / scale)[0]
+    dx, dy = (sn_x - x) / 2, (sn_y - y) / 2
+    bridge = aperture(flux, valid, x + dx, y + dy, 0, 0.8 / scale)
+    rotate = np.sqrt(0.5)
+    left = aperture(flux, valid, x + (dx - dy) * rotate, y + (dx + dy) * rotate, 0, 0.8 / scale)
+    right = aperture(flux, valid, x + (dx + dy) * rotate, y + (dy - dx) * rotate, 0, 0.8 / scale)
+    contrast = bridge - (left + right) / 2
+    contrast[np.hypot(dx, dy) * scale < 2.2] = np.nan
+    result["image_core"] = np.arcsinh(core)
+    result["image_envelope"] = np.arcsinh(envelope)
+    result["image_sn_to_core"] = np.arcsinh(sn / (1 + np.abs(core)))
+    result["image_bridge_contrast"] = np.arcsinh(contrast)
+    return result
