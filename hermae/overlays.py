@@ -11,7 +11,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from matplotlib.patches import Circle
+from matplotlib.patches import Circle, Rectangle
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 import numpy as np
 import pandas as pd
@@ -27,6 +27,11 @@ METHODS = (
     ("Tractor geometry", "dlr_rank", "dlr", "DLR"),
     ("Catalogue model", "catalogue_rank", "catalogue_score", "score"),
     ("Catalogue + FITS model", "image_rank", "image_score", "score"),
+)
+CNN_METHODS = (
+    METHODS[0],
+    ("Matched catalogue control", "catalogue_control_rank", "catalogue_control_score", "score"),
+    ("Catalogue + CNN", "cnn_fusion_rank", "cnn_fusion_score", "score"),
 )
 KEYS = ["event_id", "source_id"]
 
@@ -90,7 +95,7 @@ def num(value):
     return f"{value:.2f}" if pd.notna(value) else "missing"
 
 
-def render(event, audit, evaluation, field, cache, output):
+def render(event, audit, evaluation, field, cache, output, *, cnn=False):
     image, wcs, band = display_image(cache, event, audit)
     scale = audit.pixel_scale_arcsec
     sn = wcs.world_to_pixel(SkyCoord(event.ra, event.dec, unit="deg"))
@@ -102,13 +107,14 @@ def render(event, audit, evaluation, field, cache, output):
         xy = wcs.world_to_pixel(SkyCoord(evaluation.host_ra, evaluation.host_dec, unit="deg"))
         if all(-0.5 <= v < image.shape[0] - 0.5 for v in xy):
             ref = xy
-    picks = [field.nsmallest(3, rank) for _, rank, _, _ in METHODS]
+    methods = CNN_METHODS if cnn else METHODS
+    picks = [field.nsmallest(3, rank) for _, rank, _, _ in methods]
     overview = limits_around([sn, *(p for pick in picks for p in pick[["x", "y"]].to_numpy()),
                               *([ref] if ref is not None else [])], scale, margin=5, minimum=10)
     figure, grid = plt.subplots(2, 2, figsize=(10, 10.9), facecolor=BACKGROUND)
     figure.subplots_adjust(left=.075, right=.97, top=.885, bottom=.14, wspace=.19, hspace=.35)
     try:
-        for axis, (name, rank, score, label), color, pick in zip(grid.flat, METHODS, COLORS, picks):
+        for axis, (name, rank, score, label), color, pick in zip(grid.flat, methods, COLORS, picks):
             draw_background(axis, image, sn, overview, scale, band)
             axis.set_title(name, color=color, fontsize=13, fontweight="bold")
             axis.scatter(field.x, field.y, s=9, facecolors="none", edgecolors="#a5b9c6",
@@ -135,14 +141,39 @@ def render(event, audit, evaluation, field, cache, output):
                       transform=axis.transAxes, va="top", color=TEXT, fontsize=8.5)
 
         axis = grid[1, 1]
-        axis.set_title("FITS measurements for image-model #1", color=COLORS[2], fontsize=12,
+        title = "CNN input stamps for fusion #1" if cnn else "FITS measurements for image-model #1"
+        axis.set_title(title, color=COLORS[2], fontsize=12,
                        fontweight="bold")
         if band != "r" or picks[2].empty:
             draw_background(axis, image, sn, overview, scale, band)
-            reason = ("No usable r-band input\nThe model imputed the image features"
-                      if band != "r" else "No candidates to measure")
+            reason = "No candidates to measure"
+            if band != "r":
+                detail = "The CNN score term is zero" if cnn else "The model imputed the image features"
+                reason = f"No usable r-band input\n{detail}"
             axis.text(.5, .83, reason, transform=axis.transAxes, ha="center", color=TEXT,
                       bbox=dict(facecolor=BACKGROUND, edgecolor="none"))
+        elif cnn:
+            from .cnn import STAMP, stamp_centres
+
+            row = picks[2].iloc[0]
+            centres = np.rint(stamp_centres(np.array([[row.x, row.y]]), np.array(sn))[0])
+            draw_background(axis, image, sn, limits_around(centres, scale, 5, 7), scale, band)
+            for offset, ((x, y), name, color) in enumerate(
+                zip(centres, ("Candidate", "SN", "Midpoint"), (COLORS[2], REFERENCE, COLORS[0]))
+            ):
+                axis.add_patch(Rectangle((x - STAMP / 2, y - STAMP / 2), STAMP, STAMP,
+                                         fill=False, edgecolor=color, linewidth=1.5, zorder=5))
+                axis.annotate(name, (x, y), xytext=(6, (offset - 1) * 13), textcoords="offset points",
+                              color=color, fontsize=8, zorder=8,
+                              bbox=dict(facecolor=BACKGROUND, edgecolor="none", pad=1))
+            axis.add_patch(Circle(sn, SN_MASK_ARCSEC / scale, fill=False, edgecolor=TEXT,
+                                  linestyle="--", linewidth=1.25, zorder=5))
+            term = row.cnn_fusion_image_term
+            note = (f"{STAMP} × {STAMP} pixels per stamp" if row.cnn_has_pixels
+                    else "Image term suppressed by the coverage threshold")
+            axis.text(0, -.10,
+                      f"Catalogue term {row.cnn_fusion_score - term:.2f}  ·  CNN term {term:+.2f}\n{note}",
+                      transform=axis.transAxes, va="top", color=TEXT, fontsize=8.7)
         else:
             row = picks[2].iloc[0]
             centre = row.x, row.y
@@ -172,11 +203,16 @@ def render(event, audit, evaluation, field, cache, output):
                     ha="center", color=TEXT, fontsize=11)
         handles = [
             Line2D([], [], marker="+", color=TEXT, linestyle="none", label="SN / dashed mask"),
-            Line2D([], [], marker="*", color=REFERENCE, markerfacecolor="none", linestyle="none",
-                   label="Published position / SN annulus"),
-            Line2D([], [], color=COLORS[2], label="Candidate core and envelope"),
-            Line2D([], [], color=COLORS[0], label="Bridge / dashed controls"),
         ]
+        if cnn:
+            entries = ((REFERENCE, "Published position / SN stamp"),
+                       (COLORS[2], "Candidate stamp"), (COLORS[0], "Midpoint stamp"))
+        else:
+            entries = ((REFERENCE, "Published position / SN annulus"),
+                       (COLORS[2], "Candidate core and envelope"), (COLORS[0], "Bridge / dashed controls"))
+        for index, (color, name) in enumerate(entries):
+            handles.append(Line2D([], [], color=color, label=name, marker="*" if index == 0 else None,
+                                  markerfacecolor="none", linestyle="none" if index == 0 else "-"))
         legend = figure.legend(handles=handles, loc="lower center", bbox_to_anchor=(.5, .025),
                                ncols=2, frameon=False, fontsize=9)
         for label in legend.get_texts():
@@ -191,45 +227,56 @@ def main():
     parser.add_argument("--run", type=Path, default=Path("results/benchmark"))
     parser.add_argument("--images", type=Path, default=Path("results/benchmark/images"))
     parser.add_argument("--cache", type=Path, default=Path(".cache"))
-    parser.add_argument("--output", type=Path, default=Path("results/benchmark/overlays"))
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--cnn", action="store_true", help="show CNN fusion ranks and input stamps")
+    parser.add_argument("--cnn-results", type=Path, default=Path("results/benchmark/cnn"))
     parser.add_argument("--event", action="append", help="repeat to select validation event IDs")
     options = parser.parse_args()
-    comparisons = pd.read_csv(options.images / "image_validation.csv").set_index("event_id")
+    if options.output is None:
+        options.output = options.cnn_results / "overlays" if options.cnn else Path("results/benchmark/overlays")
+    data = options.cnn_results if options.cnn else options.images
+    prefix = "cnn" if options.cnn else "image"
+    comparisons = pd.read_csv(data / f"{prefix}_validation.csv").set_index("event_id")
     events = sorted(set(options.event or comparisons.index))
     if missing := set(events) - set(comparisons.index):
         parser.error(f"Events outside the scored validation split: {', '.join(sorted(missing))}")
     transients = pd.read_csv(options.run / "events.csv", usecols=["event_id", "ra", "dec"]).set_index("event_id")
     audit = pd.read_csv(options.images / "image_inputs.csv").set_index("event_id")
-    rankings = pd.read_csv(options.images / "image_rankings.csv")
+    rankings = pd.read_csv(data / f"{prefix}_rankings.csv")
     sources = pd.read_csv(options.run / "candidates.csv", usecols=[
         *KEYS, "ra", "dec", "dlr", "dlr_rank", "shape_r", "axis_ratio", "major_pa_deg"])
-    features = pd.read_csv(options.images / "image_features.csv")
     selected = rankings.loc[rankings.event_id.isin(events)]
     field = selected.merge(sources, on=KEYS, validate="one_to_one")
-    field = field.merge(features, on=KEYS, validate="one_to_one")
+    if not options.cnn:
+        field = field.merge(pd.read_csv(options.images / "image_features.csv"), on=KEYS, validate="one_to_one")
     if len(field) != len(selected):
         parser.error("Some ranked candidates are missing catalogue rows or FITS features.")
     options.output.mkdir(parents=True, exist_ok=True)
-    gallery = ["# FITS analysis overlays", "",
-               "Numbers mark candidate ranks within each model. Logistic decision scores are uncalibrated.",
-               "Axes show cutout offsets from the SN. DLR is separation divided by the directional half-light radius.",
-               "Aperture values are transformed, field-normalized measurements. A missing value indicates insufficient coverage or an excluded aperture.",
-               "When r-band pixels are unavailable, the image-model panel shows its scores with imputed image features. The g- or z-band background provides visual context.",
-               ""]
+    gallery = ["# CNN analysis overlays" if options.cnn else "# FITS analysis overlays", "",
+               "Numbers mark candidate ranks within each model. Model scores are uncalibrated.",
+               "Axes show cutout offsets from the SN. DLR is separation divided by the directional half-light radius."]
+    if options.cnn:
+        gallery += ["The boxes show the CNN input stamps. Scores split into catalogue and CNN terms. "
+                    "The g- or z-band backgrounds provide context for fields with missing r-band pixels.", ""]
+    else:
+        gallery += ["Aperture values are transformed, field-normalized measurements. A missing value indicates insufficient coverage or an excluded aperture.",
+                    "When r-band pixels are unavailable, the image-model panel shows its scores with imputed image features. The g- or z-band background provides visual context.", ""]
+    reference_a, reference_b = (("catalogue_control_reference_rank", "cnn_fusion_reference_rank") if options.cnn
+                                else ("catalogue_reference_rank", "image_reference_rank"))
     def reference_changed(event_id):
         row = comparisons.loc[event_id]
-        return (pd.notna(row.catalogue_reference_rank) and pd.notna(row.image_reference_rank)
-                and row.catalogue_reference_rank != row.image_reference_rank)
+        return pd.notna(row[reference_a]) and pd.notna(row[reference_b]) and row[reference_a] != row[reference_b]
 
     for event_id in sorted(events, key=lambda name: (not reference_changed(name), name)):
         event = transients.loc[[event_id]].reset_index().iloc[0]
         evaluation = comparisons.loc[event_id]
         render(event, audit.loc[event_id], evaluation,
-               field.loc[field.event_id.eq(event_id)], options.cache, options.output / f"{event_id}.png")
+               field.loc[field.event_id.eq(event_id)], options.cache, options.output / f"{event_id}.png",
+               cnn=options.cnn)
         note = ""
         if reference_changed(event_id):
-            note = (f" · Published counterpart rank {int(evaluation.catalogue_reference_rank)} "
-                    f"→ {int(evaluation.image_reference_rank)} with FITS")
+            note = (f" · Published counterpart rank {int(evaluation[reference_a])} "
+                    f"→ {int(evaluation[reference_b])} with {'CNN' if options.cnn else 'FITS'}")
         gallery.append(f"- [{event_id}]({event_id}.png){note}")
     (options.output / "gallery.md").write_text("\n".join([*gallery, ""]), encoding="utf-8")
     print(f"Rendered {len(events)} FITS overlays in {options.output}.")
