@@ -53,11 +53,14 @@ class Cache:
             sleep(max(0., self._viewer_next - now))
             self._viewer_next = monotonic() + 1.5
 
-    def get(self, url, group, suffix, params=None):
+    def get(self, url, group, suffix, params=None, missing_ok=False):
         url = requests.Request("GET", url, params=params).prepare().url
         path = self.root / group / (sha256(url.encode()).hexdigest() + suffix)
         if path.is_file():
             return path
+        missing = path.with_suffix(path.suffix + ".not-found")
+        if missing_ok and missing.is_file():
+            return None
         if self.offline:
             raise SourceError(f"Not cached: {url}")
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -71,6 +74,9 @@ class Cache:
                     if url.startswith(VIEWER + "/"):
                         self._pace_viewer()
                     with session.get(url, timeout=(10, 60), stream=True) as response:
+                        if missing_ok and response.status_code == 404:
+                            missing.touch()
+                            return None
                         if response.status_code == 429 and url.startswith(VIEWER + "/") and attempt < 3:
                             retry_after = response.headers.get("Retry-After", "")
                             delay = max(5 * 2**attempt, int(retry_after) if retry_after.isdigit() else 0)

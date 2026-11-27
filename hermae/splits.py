@@ -24,6 +24,14 @@ def input_hashes(run):
     return {name: text_hash(run / name) for name in INPUT_FILES}
 
 
+def validation_selection(run, split):
+    manifest = json.loads(split.read_text(encoding="utf-8"))
+    if input_hashes(run) != manifest["source_sha256"]:
+        raise ValueError("Export files differ from the frozen benchmark inputs.")
+    events = [row["event_id"] for row in manifest["assignments"] if row["split"] == "validation"]
+    return events, manifest["search_radii_arcsec"][0]
+
+
 def sky_regions(events):
     band = np.minimum(((events.dec + 90) // REGION_DEG).astype(int), 179 // REGION_DEG)
     center_dec = (band + 0.5) * REGION_DEG - 90
