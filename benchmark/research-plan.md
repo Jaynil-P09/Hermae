@@ -16,7 +16,7 @@ Search public spectroscopic releases beyond DESI Main Survey bright and dark, be
 
 ## Phase 3 — Freeze a decision policy and run the reserved test
 
-Use validation to specify the feature sets, missing-data behaviour, and rules for automatic assignment, review, and possible missing host. Record the complete protocol before scoring the reserved events. Compare retrieval and ranking separately, report uncertainty and accuracy versus coverage, and track crowded, faint, high-offset, and missing-data cases. Keep simulated source removal separate from evidence for real missing hosts. Use probability language only for scores with demonstrated calibration.
+Use validation to specify the feature sets, missing-data behaviour, and rules for automatic assignment, review, and possible missing host. Expose the frozen ranking and review policy through the existing RA and Dec entry point. Record the complete protocol before scoring the reserved events. Compare retrieval and ranking separately, report uncertainty and accuracy versus coverage, and track crowded, faint, high-offset, and missing-data cases. Keep simulated source removal separate from evidence for real missing hosts. Use probability language only for scores with demonstrated calibration. If the reserved sample is too small for a stable comparison, collect another untouched cohort with a versioned sky-group split.
 
 ## Phase 4 — Investigate disputed hosts and publish the benchmark
 
