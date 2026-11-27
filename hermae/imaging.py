@@ -81,6 +81,15 @@ def fetch_images(cache, events, radius, workers):
             records.append(record)
             if record["status"] != "ok" or len(records) % 10 == 0 or len(records) == len(events):
                 print(f"Images {len(records)}/{len(events)} {record['event_id']} {record['status']}", flush=True)
+    failed = [i for i, row in enumerate(records) if row["status"] == "query_or_fits_failed"]
+    if failed and not cache.offline:
+        print(f"Retrying {len(failed)} FITS fields at lower concurrency.", flush=True)
+        retry_events = events.iloc[failed].itertuples()
+        with ThreadPoolExecutor(min(workers, 2)) as pool:
+            for index, record in zip(failed, pool.map(lambda event: fetch_image(cache, event, radius),
+                                                     retry_events)):
+                records[index] = record
+                print(f"Retry {record['event_id']} {record['status']}", flush=True)
     return pd.DataFrame(records)
 
 
