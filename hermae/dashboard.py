@@ -22,7 +22,8 @@ def dashboard(folder, out=None):
     if not pair and summary["mode"] != "known_position":
         raise ValueError("Select the top-level directory for a known-position or pair-search run.")
     data = dict(mode=summary["mode"], status=summary["status"], counts=dict(
-        detections=summary["detections"], candidates=summary["candidates"]), image=png(folder / "overlay.png"),
+        detections=summary["detections"], candidates=summary["candidates"]),
+        image=png(folder / "overlay.png") if "overlay.png" in summary["files"] else None,
         tables={}, hosts={})
     if pair:
         data["tables"]["Transient candidates"] = records(folder / "transients.csv")

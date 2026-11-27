@@ -9,7 +9,8 @@ import numpy as np
 from scipy import ndimage
 
 
-def render(frame, labels, x, y, hosts, comparison, path, title="Classical source detection"):
+def render(frame, labels, x, y, hosts, comparison, path, title="Classical source detection",
+           *, position_label="Supernova"):
     canvas = "#0e1722"
     ink = "#eaf4fb"
     valid_data = frame.science[frame.valid]
@@ -38,7 +39,7 @@ def render(frame, labels, x, y, hosts, comparison, path, title="Classical source
             if inside:
                 ax.scatter(x, y, marker="+", s=115, color=canvas, linewidths=3.4, zorder=6)
                 ax.scatter(x, y, marker="+", s=115, color="#ffffff", linewidths=1.5,
-                           zorder=7, label="Supernova")
+                           zorder=7, label=position_label)
             if hosts:
                 host = hosts[0]
                 ax.scatter(host["x_px"], host["y_px"], marker="D", s=110, facecolors="none",
@@ -57,9 +58,9 @@ def render(frame, labels, x, y, hosts, comparison, path, title="Classical source
             cx, cy = (points.min(axis=0) + points.max(axis=0)) / 2
             pad = max(19., float(np.ptp(points, axis=0).max()) / 2 + 10)
             axes[1].set(xlim=(cx - pad, cx + pad), ylim=(cy - pad, cy + pad))
-            axes[1].set_title("Detail · supernova and host ranking", color=ink, fontsize=12)
+            axes[1].set_title(f"Detail · {position_label.lower()} and host ranking", color=ink, fontsize=12)
         else:
-            axes[1].set_title("SN outside usable image bounds", color=ink, fontsize=12)
+            axes[1].set_title(f"{position_label} outside usable image bounds", color=ink, fontsize=12)
         if axes[1].get_legend_handles_labels()[0]:
             legend = axes[1].legend(loc="lower left", facecolor=canvas, edgecolor="#465563", fontsize=9)
             for label in legend.get_texts():

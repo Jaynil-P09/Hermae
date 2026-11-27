@@ -1,0 +1,9 @@
+{
+  "docs/release-freeze.json": "82c457bc969de0bf6d1cdb0554cf7db18e372eb965121a34b8784c8b7f87f2ff",
+  "results/release/hermae-v2-release.zip": "adf24211d2d5160008b0503a0154395a46634324bad20443ad8fe268285770b9",
+  "results/release/hermae_v2-0.1.0-py3-none-any.whl": "dd83eb9a85c8af5775dee6629c0282b2bc3f1bacceec912c7d87213f86b20040",
+  "results/release/known-position.json": "1dd8803f1dbcc75744edc981987dd543bd9906bf45532f0ea9e3e3620881559d",
+  "results/release/image-pair.json": "cffed73f2b189eed0ab59c60d432f6acc827cb5156d6d5d4ce47cda91da10697",
+  "results/release/known-inputs.json": "ebc9429db537deb8f796041c9f76acb077c1e5183f8b24f8dee70ec3ad67145f",
+  "results/release/independent-pairs.json": "0774e49a98d71f3c80c0f2d14d4d06ca6a1408250a87e4242ace88654d572ec0"
+}

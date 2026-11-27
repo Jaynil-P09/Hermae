@@ -229,7 +229,8 @@ def search(args, config):
             folder.mkdir(exist_ok=True)
             row.update(host_status=status, host_run=relative)
             write_table(folder / "hosts.csv", ranked, RANK_COLUMNS + (("ranker_score",) if info else ()))
-            render(reference, labels, x, y, ranked, None, folder / "overlay.png", "Reference-frame host")
+            render(reference, labels, x, y, ranked, None, folder / "overlay.png", "Reference-frame host",
+                   position_label="Transient candidate")
             result = dict(format_version=1, mode="pair_host", status=status, candidates=len(ranked), ranker=info,
                           provisional_host=ranked[0] if ranked else None, files=["hosts.csv", "overlay.png"])
             (folder / "run.json").write_text(json.dumps(result, indent=2, allow_nan=False) + "\n", encoding="utf-8")
