@@ -1,0 +1,45 @@
+{
+  "format": 1,
+  "code_commit": "d8eae9d829eefb6989d864faf18fa59636e98348",
+  "split_sha256": "d3d8f28ee47daaadf3b49a2c041306ae5993496a42699aa5a8998d347765dc8f",
+  "match_arcsec": 1.5,
+  "cone_arcsec": 60.0,
+  "pair_sigma": 4.0,
+  "pair_match_arcsec": 2.5,
+  "independent_pair_candidate_count": 36,
+  "independent_pair_seed": 793,
+  "default_known_detector": "classical",
+  "default_pair_detector": "classical",
+  "default_pair_workflow": "subtraction",
+  "assets": {
+    "galaxy": {
+      "path": "results/phase2/galaxy.pt",
+      "sha256": "f95373071578b33122d5f05cb8a7738d0080359471107e2fc8e1e2ce82d9b30c"
+    },
+    "ranker": {
+      "path": "results/phase3-classical/image_only.pt",
+      "sha256": "993a505ffd2a959a9d7a2e08de431251ccc0ea1e6c04eaae244332d4f66c649f"
+    },
+    "cnn_ranker": {
+      "path": "results/phase3/image_only.pt",
+      "sha256": "dfc36a2c4428c92ea732232f3c94ad0786089586a849594c1aafe5dbd351b0cf"
+    },
+    "classifier": {
+      "path": "results/phase4/transient.pt",
+      "sha256": "9c0de4e070cc702c52b3ae95b76195ab8ff9670412f5bc9bdede92bddd649a0d"
+    },
+    "v1_baseline": {
+      "path": "results/v1-measured-frozen.json",
+      "sha256": "a8e071a9cec0a946340e60f6505e7ad9d31c98f8d587ff01d993559ce7994c14"
+    },
+    "pair_development_manifest": {
+      "path": "results/ztf-development/manifest.json",
+      "sha256": "9d2d20344fdd1a080349c9ede2512b0af2e9de1405e150e93cac6d772f4c5527"
+    }
+  },
+  "external_cohort_inputs": {
+    ".cache/ztf/snia_data.csv": "00235b02cea086603fe3e6c7436ae2605e33500fc9c7b661373ac7dcd175fa9e",
+    ".cache/ztf/globalhost_data.csv": "d042e87d34b54daf62413ee089149c9e929b8ad2ceed1942af94a21730e03a4a",
+    "benchmark/development_events.csv": "9c11535ba93ceb78f8f3c64f2665c21811f3e552229663906bfbfa1872491d89"
+  }
+}
