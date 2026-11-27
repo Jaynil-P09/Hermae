@@ -77,8 +77,8 @@ def report(manifest, audit, image_features, evaluation, train_count, retrieved_c
     if not recovered.empty:
         change = paired_interval(recovered, "image", "catalogue", manifest["split_seed"])
         lines += ["", f"The paired first-rank change was {change}. "
-                  f"Images improved {int((discovered & ~baseline).sum())} first-rank outcomes and "
-                  f"worsened {int((baseline & ~discovered).sum())}."]
+                  f"The image model improved {int((discovered & ~baseline).sum())} and worsened "
+                  f"{int((baseline & ~discovered).sum())} of the first-rank outcomes."]
     lines += ["", "The image model adds four measurements of r-band light to the same regularized "
               "logistic ranker. Inverse variance masks unusable pixels. Measurements use the candidate "
               "and SN coordinates, with a 1.4″ mask around the transient to reduce contamination from "

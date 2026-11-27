@@ -6,6 +6,8 @@ The groundwork is complete. The catalogue benchmark uses 150 real ZTF SN Ia DR2 
 
 ## Phase 1 — Test FITS image features
 
+Completed on the frozen v1 cohort. [Image validation report](image-v1.md) · [FITS input audit](image-inputs-v1.csv)
+
 Fetch a DR10 south r-band science image and inverse-variance map for each training and validation field. Verify WCS alignment and log missing or failed cutouts. Derive simple candidate-centred features from masked pixel apertures at the galaxy centre and toward the SN. Retain missing measurements and the full catalogue candidate pool.
 
 Compare catalogue-only and catalogue-plus-image logistic rankers on the same validation events, using identical training events, labels, and ranking rules. Report coverage, top-1 and top-3 agreement, and the paired top-1 change with a sky-group bootstrap interval. Phase completion requires versioned code and results, a runnable command, an offline replay, and a position/coverage check. The test split stays reserved.

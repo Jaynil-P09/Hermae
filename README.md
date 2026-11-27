@@ -87,11 +87,11 @@ py -3.12 -m venv .cache/prost-env
 
 The [v1 Pröst report](benchmark/prost-v1.md) compares upstream Pröst offset scoring on the same validation candidates used by nearest neighbour and DLR. The adapter supplies cached Tractor candidates to upstream shape sampling and association. It uses the reference notebook's offset prior and likelihood, orders candidates by their median posterior, and records the upstream Monte Carlo winner separately. Pröst's stock DECaLS query uses its own cuts and a photo-z join. [Pröst reference notebook](https://github.com/alexandergagliano/Prost/blob/main/docs/notebooks/associate.ipynb)
 
-The DESI Main Survey audit found no validation field with both a transient-template SN redshift and an unambiguous usable candidate redshift that passed the secondary-target screen. The next experiment is to test FITS image features on the frozen validation split. A redshift comparison needs a broader spectroscopy search and provenance review. [DESI DR1 data](https://data.desi.lbl.gov/doc/releases/dr1/)
+The DESI Main Survey audit found no validation field with both a transient-template SN redshift and an unambiguous usable candidate redshift that passed the secondary-target screen. The next spectroscopy phase broadens the search and reviews targeting provenance. [DESI DR1 data](https://data.desi.lbl.gov/doc/releases/dr1/)
 
 ### FITS image ablation
 
-The [research plan](benchmark/research-plan.md) describes the remaining phases. Run the first phase using the main environment:
+The [research plan](benchmark/research-plan.md) records the project phases. The [v1 image report](benchmark/image-v1.md) and [FITS input audit](benchmark/image-inputs-v1.csv) capture the first phase. I visually checked the candidate and transient positions against two actual images, ZTF18aaanzph and ZTF18abvejbm. Run the phase using the main environment:
 
 ```powershell
 .venv/Scripts/python -m hermae.image_benchmark --run results/benchmark --split benchmark/split-v1.json --output results/benchmark/images
