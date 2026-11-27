@@ -12,7 +12,8 @@ py -3.13 -m venv .venv
 ```
 
 Install the optional neural models with `.venv/Scripts/python -m pip install -e ".[ml]"`.
-Use `--device cuda` with a CUDA-enabled PyTorch installation. The classical
+Training selects CUDA automatically with a CUDA-enabled PyTorch installation.
+Use `--device cuda` to require CUDA or `--device cpu` to train on the CPU. The classical
 detector, subtraction baseline, and dashboard can run without PyTorch.
 
 ## Find a provisional host

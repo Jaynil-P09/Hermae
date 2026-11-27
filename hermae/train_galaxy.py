@@ -17,6 +17,7 @@ from torch.nn import functional as F
 from .detection import DetectorConfig, detect, detection_inputs
 from .development import Benchmark
 from .galaxy import GalaxyDetector, GalaxyNet, instances, pixels
+from .training_device import add_device_argument, resolve_device
 
 CROP = 96
 SETTINGS = ((.35, .15), (.35, .30), (.45, .20), (.50, .40), (.60, .45),
@@ -260,7 +261,8 @@ def train(args):
     else:
         chosen = min(SETTINGS, key=lambda setting: assessment[setting]["real"]["unmatched"])
     report = {"split_sha256": data.split_hash, "seed": args.seed, "epochs": args.epochs,
-              "batch_size": args.batch_size, "device": args.device, "train_ids": used,
+              "batch_size": args.batch_size, "device": args.device, "device_name": args.device_name,
+              "training_crops": len(tensors[0]), "train_ids": used,
               "validation_ids": validation_ids, "loss": history, "thresholds": chosen,
               "thresholds_meeting_baseline_unmatched_count": eligible,
               "test_kind": "weak catalogue real-field labels plus separate synthetic injections",
@@ -278,11 +280,12 @@ def main():
     parser.add_argument("--epochs", type=int, default=12)
     parser.add_argument("--batch-size", type=int, default=24)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--device", default="cpu")
+    add_device_argument(parser)
     parser.add_argument("--limit", type=int, help="optional smoke-test field limit per split")
     args = parser.parse_args()
     if args.epochs < 1 or args.batch_size < 1 or args.limit is not None and args.limit < 1:
         parser.error("Epochs, batch size and field limit must be positive.")
+    args.device, args.device_name = resolve_device(parser, args.device)
     train(args)
 
 

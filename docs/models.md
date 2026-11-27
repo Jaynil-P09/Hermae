@@ -1,22 +1,24 @@
 # Development models
 
 Train in `Hermae_v2` with the audited `Hermae_v1` checkout alongside it.
-Commands below use the verified RTX 5070 environment. Omit `--device cuda` for
-CPU execution. All training and operating-point selection used development
+The training commands select CUDA automatically when available. Pass
+`--device cuda` to require an NVIDIA GPU, `--device cuda:1` to select a specific
+GPU, or `--device cpu` for CPU execution. Each run records the selected device
+and its name in `report.json`. All training and operating-point selection used development
 fields from the frozen v1 split. The archived ZTF pair acquisition also used
-that split.
+that split. The commands below write fresh checkpoints to `results/retrain`.
 
 ```powershell
-.venv/Scripts/python.exe -m hermae.train_galaxy --v1 ../Hermae_v1 --out results/phase2 --epochs 12 --device cuda
-.venv/Scripts/python.exe -m hermae.train_ranker --v1 ../Hermae_v1 --out results/phase3-classical --epochs 20 --device cuda
-.venv/Scripts/python.exe -m hermae.train_ranker --v1 ../Hermae_v1 --out results/phase3 --epochs 20 --device cuda --galaxy-weights results/phase2/galaxy.pt
-.venv/Scripts/python.exe -m hermae.ztf_pairs --v1 ../Hermae_v1 --out results/ztf-development --limit 35
-.venv/Scripts/python.exe -m hermae.train_transient --v1 ../Hermae_v1 --manifest results/ztf-development/manifest.json --out results/phase4 --epochs 20 --device cuda
+.venv/Scripts/python.exe -m hermae.train_galaxy --v1 ../Hermae_v1 --out results/retrain/galaxy --epochs 12 --device cuda
+.venv/Scripts/python.exe -m hermae.train_ranker --v1 ../Hermae_v1 --out results/retrain/ranker-classical --epochs 20 --device cuda
+.venv/Scripts/python.exe -m hermae.train_ranker --v1 ../Hermae_v1 --out results/retrain/ranker-unet --epochs 20 --device cuda --galaxy-weights results/retrain/galaxy/galaxy.pt
+.venv/Scripts/python.exe -m hermae.train_transient --v1 ../Hermae_v1 --manifest results/ztf-development/manifest.json --out results/retrain/transient --epochs 20 --device cuda
 ```
 
-The archive commands are live queries. Availability can change. Use the
-archived acquisition manifest and its FITS hashes to reproduce the exact pair
-cohort in this release.
+If you need to acquire ZTF pairs again, run
+`.venv/Scripts/python.exe -m hermae.ztf_pairs --v1 ../Hermae_v1 --out results/ztf-new --limit 35`
+and pass the new manifest to the transient trainer. Use the archived acquisition
+manifest and its FITS hashes for the exact release cohort.
 
 ## Galaxy detector
 

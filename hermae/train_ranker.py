@@ -15,6 +15,7 @@ from .fits_input import sn_position
 from .galaxy import GalaxyDetector, pixels
 from .host import rank_hosts
 from .ranker import HostRanker, candidate_inputs, score
+from .training_device import add_device_argument, resolve_device
 
 POOLS = ("catalogue", "image", "union")
 
@@ -155,12 +156,13 @@ def main():
     parser.add_argument("--v1", required=True, type=Path)
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--galaxy-weights", type=Path, help="frozen CNN detector; omit for the classical detector")
-    parser.add_argument("--device", default="cpu")
+    add_device_argument(parser)
     parser.add_argument("--epochs", default=20, type=int)
     parser.add_argument("--seed", default=42, type=int)
     args = parser.parse_args()
     if args.epochs < 1:
         parser.error("Epochs must be positive.")
+    args.device, args.device_name = resolve_device(parser, args.device)
     torch.set_num_threads(4)
     benchmark = Benchmark(args.v1)
     out = benchmark.output(args.out)
@@ -170,6 +172,7 @@ def main():
     print(f"Prepared {len(train)} training and {len(valid)} validation fields", flush=True)
     report = dict(split_sha256=benchmark.split_hash, detector_sha256=digest(args.galaxy_weights)
                   if args.galaxy_weights else None, seed=args.seed, epochs=args.epochs,
+                  device=args.device, device_name=args.device_name,
                   train_exclusions=train_exclusions, validation_exclusions=valid_exclusions, models={})
     for mode in ("image_only", "catalogue_fusion"):
         use_catalogue = mode == "catalogue_fusion"

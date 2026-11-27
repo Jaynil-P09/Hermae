@@ -12,6 +12,7 @@ from torch.nn import functional as F
 from .development import Benchmark, digest
 from .pair import difference, frames, residual_candidates
 from .transient import TransientNet, classify, stamps
+from .training_device import add_device_argument, resolve_device
 
 BASELINE = 4.
 MATCH = 2.5
@@ -112,12 +113,13 @@ def main():
     parser.add_argument("--v1", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--device", default="cpu")
+    add_device_argument(parser)
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
     if args.epochs < 1:
         parser.error("Epochs must be positive.")
+    args.device, args.device_name = resolve_device(parser, args.device)
     data = Benchmark(args.v1)
     out = data.output(args.out)
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
@@ -142,6 +144,7 @@ def main():
     torch.save(dict(kind="hermae-transient-v1", model=model.cpu().state_dict(), baseline_sigma=BASELINE,
                     threshold=threshold, split_sha256=data.split_hash), out / "transient.pt")
     report = dict(manifest_sha256=digest(args.manifest), split_sha256=data.split_hash, seed=args.seed,
+                  epochs=args.epochs, device=args.device, device_name=args.device_name,
                   baseline_sigma=BASELINE, threshold=threshold, loss=history, training_examples=audit,
                   baseline=baseline, classifier=options[threshold], thresholds=options)
     (out / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
