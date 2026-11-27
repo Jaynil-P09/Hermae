@@ -1,0 +1,998 @@
+{
+  "version": 1,
+  "split_seed": 42,
+  "cohort_seed": 42,
+  "search_radii_arcsec": [
+    60,
+    90,
+    120
+  ],
+  "region_scale_degrees": 10,
+  "reference_tolerance_arcsec": 1.5,
+  "max_cutout_half_diagonal_arcsec": 60,
+  "overlap_arcsec": 360,
+  "target_fractions": {
+    "train": 0.6,
+    "validation": 0.2,
+    "test": 0.2
+  },
+  "development_event_ids": [
+    "ZTF18aaanzph",
+    "ZTF18aagrebu",
+    "ZTF18aapqwyv",
+    "ZTF18aaylbjm",
+    "ZTF18abgledy",
+    "ZTF18ablqhqx",
+    "ZTF18ablrljh",
+    "ZTF18abncsdn",
+    "ZTF18abvejbm",
+    "ZTF18abwxhjo",
+    "ZTF18acbvgry",
+    "ZTF18accjecm",
+    "ZTF18accwjiu",
+    "ZTF18acrfklz",
+    "ZTF18acvguyi",
+    "ZTF18acvweal",
+    "ZTF19aaddzpk",
+    "ZTF19aadyioa",
+    "ZTF19aaeicsm",
+    "ZTF19aafnecv",
+    "ZTF19aakthjl",
+    "ZTF19aallvor",
+    "ZTF19aamgttu",
+    "ZTF19aanwwlo",
+    "ZTF19aawudku",
+    "ZTF19ababmsi",
+    "ZTF19abdkdoz",
+    "ZTF19abgfrbl",
+    "ZTF19abjpkdz",
+    "ZTF19ablovot",
+    "ZTF19abpnsck",
+    "ZTF19abwouqp",
+    "ZTF19acaxcwg",
+    "ZTF19acbwhqc",
+    "ZTF19accobqx",
+    "ZTF19acekbyz",
+    "ZTF19acgaxej",
+    "ZTF19acgpqxt",
+    "ZTF19acrmmpq",
+    "ZTF19acryaon",
+    "ZTF19acvieqw",
+    "ZTF20aaazhtk",
+    "ZTF20aakhpmp",
+    "ZTF20aamdqiz",
+    "ZTF20aamfpcj",
+    "ZTF20aamujvi",
+    "ZTF20aaqnnrn",
+    "ZTF20aasxerr",
+    "ZTF20abefbnz",
+    "ZTF20abisrhp",
+    "ZTF20abkcril",
+    "ZTF20abmbxrq",
+    "ZTF20abpvhij",
+    "ZTF20abqaqgv",
+    "ZTF20abxidyb",
+    "ZTF20achatyv",
+    "ZTF20aclgnds",
+    "ZTF20acnvzga",
+    "ZTF20acphick",
+    "ZTF20acpjfln",
+    "ZTF20acpksoc",
+    "ZTF20acwcqnv",
+    "ZTF20acwijiy",
+    "ZTF20acwvluw",
+    "ZTF20acwyoxc",
+    "ZTF20acxznai",
+    "ZTF20aczgjdx"
+  ],
+  "development_sha256": "1f665963bd83cfc07077120a743789bdca839259b9d56bcf5671350b99b466b3",
+  "source_sha256": {
+    "events.csv": "6631ee4bf329c1eade66fa2722afe6122367780f339c2246ffdff4fb213e92a7",
+    "evaluation.csv": "f994a54f06aef6c0e54cd7330dd9795ba0104c32c68285ecfbfa2d1ed4c911b1",
+    "candidates.csv": "fd1e4dcc9f019e23727f3324524ae74fa815073f1feee6cf8375dfea560aca9b",
+    "coverage_audit.csv": "6972d0d88f708fcb0b63b019f92e4288f5f2788fe26050018f8b17af48b9e437",
+    "manifest.json": "9871643facdc58d1bfb2c36e38defe89cb29cbc15ecc6c42d7dba030e84a111b"
+  },
+  "assignments": [
+    {
+      "event_id": "ZTF18aaanzph",
+      "sky_region": "11-14",
+      "group_id": "ZTF18aaanzph",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18aagrebu",
+      "sky_region": "11-23",
+      "group_id": "ZTF18aagrebu",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18aahpaoa",
+      "sky_region": "10-14",
+      "group_id": "ZTF18aahpaoa",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF18aaifxvz",
+      "sky_region": "11-15",
+      "group_id": "ZTF18aaifxvz",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF18aakcsqt",
+      "sky_region": "10-17",
+      "group_id": "ZTF18aakcsqt",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF18aaodnxt",
+      "sky_region": "12-16",
+      "group_id": "ZTF18aaodnxt",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18aapqwyv",
+      "sky_region": "11-23",
+      "group_id": "ZTF18aagrebu",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18aawczad",
+      "sky_region": "11-17",
+      "group_id": "ZTF18aawczad",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF18aawnbgg",
+      "sky_region": "11-14",
+      "group_id": "ZTF18aaanzph",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18aaylbjm",
+      "sky_region": "9-24",
+      "group_id": "ZTF18aaylbjm",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18abakunn",
+      "sky_region": "11-15",
+      "group_id": "ZTF18aaifxvz",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF18abgledy",
+      "sky_region": "10-22",
+      "group_id": "ZTF18abgledy",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18abjrfqx",
+      "sky_region": "10-32",
+      "group_id": "ZTF18abjrfqx",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18ablqhqx",
+      "sky_region": "12-16",
+      "group_id": "ZTF18aaodnxt",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18ablrljh",
+      "sky_region": "11-22",
+      "group_id": "ZTF18ablrljh",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18abncsdn",
+      "sky_region": "9-34",
+      "group_id": "ZTF18abncsdn",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18abnxhmc",
+      "sky_region": "10-32",
+      "group_id": "ZTF18abjrfqx",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18abosdwf",
+      "sky_region": "8-1",
+      "group_id": "ZTF18abosdwf",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18abtmtfy",
+      "sky_region": "10-3",
+      "group_id": "ZTF18abtmtfy",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18abvejbm",
+      "sky_region": "8-1",
+      "group_id": "ZTF18abosdwf",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18abvtcts",
+      "sky_region": "8-6",
+      "group_id": "ZTF18abvtcts",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF18abvtiko",
+      "sky_region": "8-7",
+      "group_id": "ZTF18abvtiko",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF18abwxhjo",
+      "sky_region": "8-35",
+      "group_id": "ZTF18abwxhjo",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18abyzksx",
+      "sky_region": "9-33",
+      "group_id": "ZTF18abyzksx",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF18acahuph",
+      "sky_region": "9-35",
+      "group_id": "ZTF18acahuph",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18acbvgry",
+      "sky_region": "7-4",
+      "group_id": "ZTF18acbvgry",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18accjecm",
+      "sky_region": "10-1",
+      "group_id": "ZTF18accjecm",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18accwjiu",
+      "sky_region": "10-15",
+      "group_id": "ZTF18accwjiu",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18acdwohd",
+      "sky_region": "10-31",
+      "group_id": "ZTF18acdwohd",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18acmwptq",
+      "sky_region": "9-1",
+      "group_id": "ZTF18acmwptq",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18acmxkzj",
+      "sky_region": "9-0",
+      "group_id": "ZTF18acmxkzj",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18acmxmlq",
+      "sky_region": "10-0",
+      "group_id": "ZTF18acmxmlq",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF18acrfklz",
+      "sky_region": "7-0",
+      "group_id": "ZTF18acrfklz",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18actacux",
+      "sky_region": "7-7",
+      "group_id": "ZTF18actacux",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF18acvguyi",
+      "sky_region": "9-19",
+      "group_id": "ZTF18acvguyi",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18acvweal",
+      "sky_region": "9-19",
+      "group_id": "ZTF18acvguyi",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF18adbadqp",
+      "sky_region": "10-20",
+      "group_id": "ZTF18adbadqp",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF19aaajbmv",
+      "sky_region": "7-7",
+      "group_id": "ZTF18actacux",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF19aaddzpk",
+      "sky_region": "8-17",
+      "group_id": "ZTF19aaddzpk",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19aadoocn",
+      "sky_region": "11-16",
+      "group_id": "ZTF19aadoocn",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF19aadyioa",
+      "sky_region": "12-19",
+      "group_id": "ZTF19aadyioa",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19aaeicsm",
+      "sky_region": "9-11",
+      "group_id": "ZTF19aaeicsm",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19aafnecv",
+      "sky_region": "11-23",
+      "group_id": "ZTF18aagrebu",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19aaknacv",
+      "sky_region": "9-16",
+      "group_id": "ZTF19aaknacv",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF19aakthjl",
+      "sky_region": "11-18",
+      "group_id": "ZTF19aakthjl",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19aallvor",
+      "sky_region": "10-16",
+      "group_id": "ZTF19aallvor",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19aalsqqy",
+      "sky_region": "10-23",
+      "group_id": "ZTF19aalsqqy",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF19aamgttu",
+      "sky_region": "10-13",
+      "group_id": "ZTF19aamgttu",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19aanfyey",
+      "sky_region": "10-15",
+      "group_id": "ZTF18accwjiu",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19aanonjt",
+      "sky_region": "7-14",
+      "group_id": "ZTF19aanonjt",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF19aanwwlo",
+      "sky_region": "9-19",
+      "group_id": "ZTF18acvguyi",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19aanyuyh",
+      "sky_region": "10-31",
+      "group_id": "ZTF18acdwohd",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19aargqez",
+      "sky_region": "9-31",
+      "group_id": "ZTF19aargqez",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF19aarqmjs",
+      "sky_region": "8-12",
+      "group_id": "ZTF19aarqmjs",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF19aartuli",
+      "sky_region": "7-18",
+      "group_id": "ZTF19aartuli",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF19aatgopg",
+      "sky_region": "9-17",
+      "group_id": "ZTF19aatgopg",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF19aavounq",
+      "sky_region": "10-22",
+      "group_id": "ZTF18abgledy",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19aavwbpc",
+      "sky_region": "9-16",
+      "group_id": "ZTF19aaknacv",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF19aawgolt",
+      "sky_region": "7-17",
+      "group_id": "ZTF19aawgolt",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF19aawudku",
+      "sky_region": "8-19",
+      "group_id": "ZTF19aawudku",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19aaynsws",
+      "sky_region": "9-35",
+      "group_id": "ZTF18acahuph",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19aaznoct",
+      "sky_region": "6-29",
+      "group_id": "ZTF19aaznoct",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF19ababmsi",
+      "sky_region": "11-2",
+      "group_id": "ZTF19ababmsi",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19abcupln",
+      "sky_region": "10-23",
+      "group_id": "ZTF19aalsqqy",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF19abdkdoz",
+      "sky_region": "8-2",
+      "group_id": "ZTF19abdkdoz",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19abgfrbl",
+      "sky_region": "10-34",
+      "group_id": "ZTF19abgfrbl",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19abjpkdz",
+      "sky_region": "10-3",
+      "group_id": "ZTF18abtmtfy",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19abkgbul",
+      "sky_region": "10-5",
+      "group_id": "ZTF19abkgbul",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF19ablovot",
+      "sky_region": "8-1",
+      "group_id": "ZTF18abosdwf",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19abopflp",
+      "sky_region": "11-0",
+      "group_id": "ZTF19abopflp",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19abpnsck",
+      "sky_region": "6-5",
+      "group_id": "ZTF19abpnsck",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19abqynnh",
+      "sky_region": "12-8",
+      "group_id": "ZTF19abqynnh",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF19abrilok",
+      "sky_region": "7-34",
+      "group_id": "ZTF19abrilok",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF19abwouqp",
+      "sky_region": "10-34",
+      "group_id": "ZTF19abgfrbl",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19abxvjkn",
+      "sky_region": "10-11",
+      "group_id": "ZTF19abxvjkn",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF19abzmnuk",
+      "sky_region": "10-23",
+      "group_id": "ZTF19aalsqqy",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF19abzutid",
+      "sky_region": "10-33",
+      "group_id": "ZTF19abzutid",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF19acardcs",
+      "sky_region": "10-33",
+      "group_id": "ZTF19abzutid",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF19acaxcwg",
+      "sky_region": "10-34",
+      "group_id": "ZTF19abgfrbl",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19acbwhqc",
+      "sky_region": "10-24",
+      "group_id": "ZTF19acbwhqc",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19accmxtw",
+      "sky_region": "10-32",
+      "group_id": "ZTF18abjrfqx",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19accobqx",
+      "sky_region": "10-32",
+      "group_id": "ZTF18abjrfqx",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19accstol",
+      "sky_region": "9-12",
+      "group_id": "ZTF19accstol",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19acekbyz",
+      "sky_region": "9-12",
+      "group_id": "ZTF19accstol",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19acftfst",
+      "sky_region": "11-31",
+      "group_id": "ZTF19acftfst",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF19acgaxej",
+      "sky_region": "8-3",
+      "group_id": "ZTF19acgaxej",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19acgeabh",
+      "sky_region": "7-12",
+      "group_id": "ZTF19acgeabh",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF19acgpnlk",
+      "sky_region": "10-16",
+      "group_id": "ZTF19aallvor",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19acgpqxt",
+      "sky_region": "9-3",
+      "group_id": "ZTF19acgpqxt",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19aclhohd",
+      "sky_region": "9-14",
+      "group_id": "ZTF19aclhohd",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19acrddcz",
+      "sky_region": "7-30",
+      "group_id": "ZTF19acrddcz",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF19acrmmpq",
+      "sky_region": "6-30",
+      "group_id": "ZTF19acrmmpq",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19acryaon",
+      "sky_region": "7-1",
+      "group_id": "ZTF19acryaon",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19acshfvz",
+      "sky_region": "11-2",
+      "group_id": "ZTF19ababmsi",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19actzjrf",
+      "sky_region": "7-3",
+      "group_id": "ZTF19actzjrf",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF19acvieqw",
+      "sky_region": "9-1",
+      "group_id": "ZTF18acmwptq",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF19acwiqrc",
+      "sky_region": "12-0",
+      "group_id": "ZTF19acwiqrc",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF19acxovyh",
+      "sky_region": "9-16",
+      "group_id": "ZTF19aaknacv",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF19adajqwl",
+      "sky_region": "11-20",
+      "group_id": "ZTF19adajqwl",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF20aaazhtk",
+      "sky_region": "7-23",
+      "group_id": "ZTF20aaazhtk",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20aabqkla",
+      "sky_region": "9-19",
+      "group_id": "ZTF18acvguyi",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20aacexgb",
+      "sky_region": "6-3",
+      "group_id": "ZTF20aacexgb",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF20aaglivt",
+      "sky_region": "10-13",
+      "group_id": "ZTF19aamgttu",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20aahqbib",
+      "sky_region": "9-22",
+      "group_id": "ZTF20aahqbib",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF20aaivvwa",
+      "sky_region": "6-7",
+      "group_id": "ZTF20aaivvwa",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF20aalbjpf",
+      "sky_region": "7-7",
+      "group_id": "ZTF18actacux",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF20aalreme",
+      "sky_region": "8-19",
+      "group_id": "ZTF19aawudku",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20aamdqiz",
+      "sky_region": "10-16",
+      "group_id": "ZTF19aallvor",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20aamfpcj",
+      "sky_region": "11-13",
+      "group_id": "ZTF20aamfpcj",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20aamizsz",
+      "sky_region": "7-5",
+      "group_id": "ZTF20aamizsz",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF20aamujvi",
+      "sky_region": "9-1",
+      "group_id": "ZTF18acmwptq",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20aaqnnrn",
+      "sky_region": "10-13",
+      "group_id": "ZTF19aamgttu",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20aasxerr",
+      "sky_region": "9-23",
+      "group_id": "ZTF20aasxerr",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20aavxqej",
+      "sky_region": "11-17",
+      "group_id": "ZTF18aawczad",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF20aavxraf",
+      "sky_region": "12-16",
+      "group_id": "ZTF18aaodnxt",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20aaxagnm",
+      "sky_region": "6-17",
+      "group_id": "ZTF20aaxagnm",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF20aaynavi",
+      "sky_region": "10-13",
+      "group_id": "ZTF19aamgttu",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20aazomcu",
+      "sky_region": "10-0",
+      "group_id": "ZTF18acmxmlq",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF20abefbnz",
+      "sky_region": "11-19",
+      "group_id": "ZTF20abefbnz",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20abijfqq",
+      "sky_region": "10-18",
+      "group_id": "ZTF20abijfqq",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF20abisrhp",
+      "sky_region": "12-16",
+      "group_id": "ZTF18aaodnxt",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20abkcril",
+      "sky_region": "10-31",
+      "group_id": "ZTF18acdwohd",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20ablqbvc",
+      "sky_region": "9-32",
+      "group_id": "ZTF20ablqbvc",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20abmbxrq",
+      "sky_region": "8-33",
+      "group_id": "ZTF20abmbxrq",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20abpubll",
+      "sky_region": "7-34",
+      "group_id": "ZTF19abrilok",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF20abpvhij",
+      "sky_region": "6-0",
+      "group_id": "ZTF20abpvhij",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20abpxtaz",
+      "sky_region": "8-1",
+      "group_id": "ZTF18abosdwf",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20abqaqgv",
+      "sky_region": "11-32",
+      "group_id": "ZTF20abqaqgv",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20abrnklh",
+      "sky_region": "7-1",
+      "group_id": "ZTF19acryaon",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20abvqibv",
+      "sky_region": "6-0",
+      "group_id": "ZTF20abpvhij",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20abvykmy",
+      "sky_region": "8-5",
+      "group_id": "ZTF20abvykmy",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF20abxidyb",
+      "sky_region": "11-0",
+      "group_id": "ZTF19abopflp",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20abzayoe",
+      "sky_region": "6-31",
+      "group_id": "ZTF20abzayoe",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20abzjobr",
+      "sky_region": "11-31",
+      "group_id": "ZTF19acftfst",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF20acgpqqr",
+      "sky_region": "10-1",
+      "group_id": "ZTF18accjecm",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20achatyv",
+      "sky_region": "6-31",
+      "group_id": "ZTF20abzayoe",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20acjdhof",
+      "sky_region": "8-3",
+      "group_id": "ZTF19acgaxej",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20aclgnds",
+      "sky_region": "12-11",
+      "group_id": "ZTF20aclgnds",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20acnvzga",
+      "sky_region": "11-25",
+      "group_id": "ZTF20acnvzga",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20acphick",
+      "sky_region": "11-12",
+      "group_id": "ZTF20acphick",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20acpjfln",
+      "sky_region": "9-32",
+      "group_id": "ZTF20ablqbvc",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20acpksoc",
+      "sky_region": "9-0",
+      "group_id": "ZTF18acmxkzj",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20actlvpy",
+      "sky_region": "7-31",
+      "group_id": "ZTF20actlvpy",
+      "split": "test"
+    },
+    {
+      "event_id": "ZTF20actrwym",
+      "sky_region": "8-31",
+      "group_id": "ZTF20actrwym",
+      "split": "validation"
+    },
+    {
+      "event_id": "ZTF20acwcqnv",
+      "sky_region": "11-11",
+      "group_id": "ZTF20acwcqnv",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20acwijiy",
+      "sky_region": "6-6",
+      "group_id": "ZTF20acwijiy",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20acwvluw",
+      "sky_region": "11-13",
+      "group_id": "ZTF20aamfpcj",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20acwyoxc",
+      "sky_region": "8-15",
+      "group_id": "ZTF20acwyoxc",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20acxznai",
+      "sky_region": "9-14",
+      "group_id": "ZTF19aclhohd",
+      "split": "train"
+    },
+    {
+      "event_id": "ZTF20aczgjdx",
+      "sky_region": "6-15",
+      "group_id": "ZTF20aczgjdx",
+      "split": "train"
+    }
+  ]
+}

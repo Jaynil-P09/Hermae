@@ -108,18 +108,21 @@ def compare(run, manifest):
             int(training.event_id.nunique()), retrieved)
 
 
-def paired_interval(validation, method, seed):
-    """Group-bootstrap the paired change in first-rank agreement against DLR."""
+def paired_interval(validation, method, baseline, seed):
+    """Group-bootstrap the paired change in first-rank agreement."""
     method_hit = validation[f"{method}_reference_rank"].eq(1).astype(int)
-    dlr_hit = validation.dlr_reference_rank.eq(1).astype(int)
-    paired = (method_hit - dlr_hit).groupby(validation.group_id).agg(["sum", "count"])
+    baseline_hit = validation[f"{baseline}_reference_rank"].eq(1).astype(int)
+    delta = method_hit - baseline_hit
+    change = delta.mean() * 100
+    paired = delta.groupby(validation.group_id).agg(["sum", "count"])
     if len(paired) < 2:
-        return None
+        return f"{change:+.1f} percentage points"
     rng = np.random.default_rng(seed)
     samples = rng.integers(len(paired), size=(4000, len(paired)))
     differences = paired["sum"].to_numpy()[samples].sum(axis=1)
     total = paired["count"].to_numpy()[samples].sum(axis=1)
-    return np.quantile(differences / total, [0.025, 0.975])
+    low, high = np.quantile(differences / total, [0.025, 0.975]) * 100
+    return f"{change:+.1f} percentage points (95% group bootstrap interval {low:+.1f} to {high:+.1f})"
 
 
 def validation_report(manifest, validation, train_count, retrieved_column):
@@ -149,14 +152,12 @@ def validation_report(manifest, validation, train_count, retrieved_column):
         else:
             line = f"- **{name}** had no uniquely recovered reference to score."
         lines.append(line)
-    lines += ["", "## Paired change versus DLR", ""]
-    for method, name in METHODS.items():
-        if method == "dlr" or not count:
-            continue
-        change = recovered[f"{method}_reference_rank"].eq(1).mean() - recovered.dlr_reference_rank.eq(1).mean()
-        interval = paired_interval(recovered, method, manifest["split_seed"])
-        uncertainty = "" if interval is None else f" (95% group bootstrap interval {interval[0]:+.1%} to {interval[1]:+.1%})"
-        lines.append(f"- **{name}** {change * 100:+.1f} percentage points in first-rank agreement{uncertainty}.")
+    if count:
+        lines += ["", "## Paired change in first-rank agreement", ""]
+        for method, baseline in (("nearest", "dlr"), ("geometry", "dlr"),
+                                 ("catalogue", "dlr"), ("catalogue", "geometry")):
+            change = paired_interval(recovered, method, baseline, manifest["split_seed"])
+            lines.append(f"- **{METHODS[method]} versus {METHODS[baseline]}** {change}.")
     return "\n".join([*lines, "", "Both models used only Tractor candidate observables and geometric offsets. "
                           "Output scores are uncalibrated logistic decision values.", ""])
 
