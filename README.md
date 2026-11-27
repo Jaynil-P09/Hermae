@@ -101,6 +101,15 @@ The command retrieves a 511-pixel DR10 south cutout with inverse variance for ea
 
 Both rankers keep the frozen event assignments, training labels, and candidate set. FITS features measure r-band light in the galaxy core, its envelope, an annulus around the SN relative to the core, and a midpoint aperture toward the SN relative to two rotated controls. Features use robust field normalization and require 80% valid pixels per aperture. The extractor masks 1.4″ around the SN to reduce residual transient light. Per-candidate features, validation ranks, and a paired comparison are saved under the output directory. [Legacy Surveys DR10 image documentation](https://www.legacysurvey.org/dr10/description/)
 
+### Annotated FITS overlays
+
+```powershell
+.venv/Scripts/python -m hermae.overlays
+.venv/Scripts/python -m hermae.overlays --event ZTF18abvtiko
+```
+
+Open `results/benchmark/overlays/gallery.md` to browse the validation images. Each image shows the top three candidates for DLR, the catalogue model, and the catalogue-plus-FITS model. The final panel shows the apertures and measured features for the image model's first-ranked candidate. The gold star marks the published reference. When the r-band input is missing, the figure displays an available alternate band for orientation and identifies the model's imputed image inputs. Rendering uses the cached FITS files and checks their hashes. It reads the existing ranks and does not refit a model.
+
 ## Release documentation
 
 - [ZTF SN Ia DR2 overview](https://doi.org/10.1051/0004-6361/202450388) and [release reader](https://github.com/ZwickyTransientFacility/ztfcosmo/blob/main/ztfcosmo/io.py)
