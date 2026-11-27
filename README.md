@@ -39,6 +39,19 @@ The default output directory is `results/pilot/`.
 - **Review.** Flag empty galaxy cones or best DLR above 7 as possible missing hosts. Flag nearest fallback, flagged best-DLR shapes, disagreements, or best-two DLR scores within 20% for review. These are pilot heuristics. The cut at 7 is borrowed from the ZTF procedure, and its behavior depends on the radius definition. Panels emphasize difficult cases within the pilot.
 - **Interpretation.** Compare against the ZTF published DLR-selected reference assignments. Ranking uses no redshift or published-host features. The output records galaxy-catalogue and galaxy-emission-line redshifts as provenance, and identifies transient-template redshifts for potential later use. Unknown and override codes require provenance verification. Independent evaluation will need independently corroborated host labels and must withhold evidence used to establish those labels from the corresponding ranking inputs.
 
+## Expand the benchmark
+
+Build the first 150-event cohort with the same survey settings as the pilot and save the split manifest before fitting any model:
+
+```powershell
+.venv/Scripts/python -m hermae --events 150 --panels 0 --output results/benchmark
+.venv/Scripts/python -m hermae.splits --run results/benchmark --development-events benchmark/development_events.csv --output benchmark/split-v1.json
+```
+
+The split freezes event IDs and fingerprints the survey exports. It targets a 60/20/20 train, validation, and test allocation by whole sky group. Groups link events in the same roughly 10° sky block, events sharing a retrieved or published catalogue source, events whose published host coordinates agree within the reference match tolerance, and events whose candidate cutouts could overlap. The 120″ outer search and a 60″ maximum crop half-diagonal give a conservative 360″ separation limit for possible overlap. All groups linked to a previously inspected field are forced into training. The development list includes provisional pilot runs and the single-position example, even if a field fell outside the expanded cohort.
+
+The split command refuses to overwrite a manifest with different inputs or to freeze a cohort with a failed catalogue query or a failed coverage probe preceding the last selected event. The training and evaluation inputs are regenerated from the survey pipeline and cache.
+
 ## Release documentation
 
 - [ZTF SN Ia DR2 overview](https://doi.org/10.1051/0004-6361/202450388) and [release reader](https://github.com/ZwickyTransientFacility/ztfcosmo/blob/main/ztfcosmo/io.py)
