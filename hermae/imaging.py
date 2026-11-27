@@ -9,7 +9,7 @@ from astropy.wcs import WCS
 import numpy as np
 import pandas as pd
 
-from .survey import LAYER, PIX_SCALE, VIEWER, SourceError
+from .survey import BANDS, LAYER, PIX_SCALE, VIEWER, SourceError
 
 SIZE = 511
 PADDING_ARCSEC = 6
@@ -17,18 +17,24 @@ PADDING_ARCSEC = 6
 
 def image_request(event, radius):
     scale = max(PIX_SCALE, 2 * (radius + PADDING_ARCSEC) / (SIZE - 3))
-    return dict(ra=f"{event.ra:.8f}", dec=f"{event.dec:.8f}", layer=LAYER, bands="r",
+    # On fields without r-band weight at the SN, a grz request can still deliver
+    # the surrounding r-band coverage or a valid zero-weight plane.
+    bands = "r" if "r" in event.coverage_bands else BANDS
+    return dict(ra=f"{event.ra:.8f}", dec=f"{event.dec:.8f}", layer=LAYER, bands=bands,
                 size=SIZE, pixscale=scale, invvar=1)
 
 
 def read_image(path, event, scale):
     with fits.open(path) as hdus:
         header = hdus[0].header
-        if len(hdus) != 2 or any(h.header.get("BANDS") != "r" for h in hdus):
+        bands = header.get("BANDS")
+        if len(hdus) != 2 or bands not in {"r", BANDS} or hdus[1].header.get("BANDS") != bands:
             raise SourceError("Expected one r-band science image and its inverse-variance map.")
-        image, weights = (np.array(hdu.data, dtype=float) for hdu in hdus)
-        if image.shape != (SIZE, SIZE) or weights.shape != image.shape:
+        shape = (SIZE, SIZE) if bands == "r" else (len(bands), SIZE, SIZE)
+        if any(hdu.data is None or hdu.data.shape != shape for hdu in hdus):
             raise SourceError("Unexpected FITS image dimensions.")
+        image, weights = (np.array(hdu.data if bands == "r" else hdu.data[bands.index("r")],
+                                   dtype=float) for hdu in hdus)
         wcs = WCS(header, naxis=2)
         weights_wcs = WCS(hdus[1].header, naxis=2)
     sn = SkyCoord(event.ra, event.dec, unit="deg")
@@ -52,7 +58,8 @@ def read_image(path, event, scale):
 def fetch_image(cache, event, radius):
     params = image_request(event, radius)
     record = dict(event_id=event.event_id, split=event.split, status="ok", error="",
-                  cache_file="", sha256="", pixel_scale_arcsec=params["pixscale"], valid_fraction=0.)
+                  cache_file="", sha256="", requested_bands=params["bands"],
+                  pixel_scale_arcsec=params["pixscale"], valid_fraction=0.)
     try:
         path = cache.get(f"{VIEWER}/fits-cutout", "image_ablation", ".fits", params)
         record["cache_file"] = path.name

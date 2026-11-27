@@ -18,7 +18,7 @@ def inputs(run, manifest):
         raise ValueError("Export files differ from the frozen benchmark inputs.")
     events = pd.DataFrame(manifest["assignments"])
     events = events.loc[events.split.isin(["train", "validation"]), ["event_id", "split"]]
-    coords = pd.read_csv(run / "events.csv", usecols=["event_id", "ra", "dec"])
+    coords = pd.read_csv(run / "events.csv", usecols=["event_id", "ra", "dec", "coverage_bands"])
     events = events.merge(coords, on="event_id", validate="one_to_one").sort_values("event_id")
     candidates = pd.read_csv(run / "candidates.csv",
                              usecols=["event_id", "source_id", "ra", "dec", "in_baseline_cone"])

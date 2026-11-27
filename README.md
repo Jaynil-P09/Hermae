@@ -89,6 +89,18 @@ The [v1 Pröst report](benchmark/prost-v1.md) compares upstream Pröst offset sc
 
 The DESI Main Survey audit found no validation field with both a transient-template SN redshift and an unambiguous usable candidate redshift that passed the secondary-target screen. The next experiment is to test FITS image features on the frozen validation split. A redshift comparison needs a broader spectroscopy search and provenance review. [DESI DR1 data](https://data.desi.lbl.gov/doc/releases/dr1/)
 
+### FITS image ablation
+
+The [research plan](benchmark/research-plan.md) describes the remaining phases. Run the first phase using the main environment:
+
+```powershell
+.venv/Scripts/python -m hermae.image_benchmark --run results/benchmark --split benchmark/split-v1.json --output results/benchmark/images
+```
+
+The command retrieves a 511-pixel DR10 south cutout with inverse variance for each training and validation field. Where the SN pixel lacks r-band weight, it requests a grz cube and checks the r plane for surrounding coverage. The audit records file checksums and distinguishes zero r-band weight from request and FITS failures. Add `--offline` to use the cached images.
+
+Both rankers keep the frozen event assignments, training labels, and candidate set. FITS features measure r-band light in the galaxy core, its envelope, an annulus around the SN relative to the core, and a midpoint aperture toward the SN relative to two rotated controls. Features use robust field normalization and require 80% valid pixels per aperture. The extractor masks 1.4″ around the SN to reduce residual transient light. Per-candidate features, validation ranks, and a paired comparison are saved under the output directory. [Legacy Surveys DR10 image documentation](https://www.legacysurvey.org/dr10/description/)
+
 ## Release documentation
 
 - [ZTF SN Ia DR2 overview](https://doi.org/10.1051/0004-6361/202450388) and [release reader](https://github.com/ZwickyTransientFacility/ztfcosmo/blob/main/ztfcosmo/io.py)
