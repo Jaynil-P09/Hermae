@@ -52,6 +52,16 @@ The split freezes event IDs and fingerprints the survey exports. It targets a 60
 
 The split command refuses to overwrite a manifest with different inputs or to freeze a cohort with a failed catalogue query or a failed coverage probe preceding the last selected event. The training and evaluation inputs are regenerated from the survey pipeline and cache.
 
+Fit the two catalogue rankers and compare them against nearest neighbour and DLR on the validation split:
+
+```powershell
+.venv/Scripts/python -m hermae.benchmark --run results/benchmark --split benchmark/split-v1.json --output results/benchmark/validation
+```
+
+Both models fit regularized logistic regression. One uses separation and DLR. The other adds optical magnitudes and colours, Tractor morphology, and the number of other candidates within 5″ of each candidate. Median imputation, missingness indicators, and standardization fit on training rows. Each informative training event contributes equal total weight to its matched source and to its alternative candidates. The training label is the uniquely retrieved ZTF reference counterpart.
+
+The command exports per-candidate validation scores and ranks, an event-level comparison, and a summary with first-rank and top-three agreement. The paired first-rank differences use a bootstrap that resamples whole validation sky groups. Scores are uncalibrated. The test assignments remain reserved for a later evaluation.
+
 ## Release documentation
 
 - [ZTF SN Ia DR2 overview](https://doi.org/10.1051/0004-6361/202450388) and [release reader](https://github.com/ZwickyTransientFacility/ztfcosmo/blob/main/ztfcosmo/io.py)
