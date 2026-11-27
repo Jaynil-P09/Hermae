@@ -1,0 +1,9 @@
+.venv/
+.cache/
+__pycache__/
+*.egg-info/
+results/
+*.fits
+*.fits.gz
+*.pt
+.env
