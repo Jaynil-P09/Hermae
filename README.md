@@ -62,6 +62,8 @@ Both models fit regularized logistic regression. One uses separation and DLR. Th
 
 The command exports per-candidate validation scores and ranks, an event-level comparison, and a summary with first-rank and top-three agreement. The paired first-rank differences use a bootstrap that resamples whole validation sky groups. Scores are uncalibrated. The test assignments remain reserved for a later evaluation.
 
+The [v1 split manifest](benchmark/split-v1.json) and [v1 validation report](benchmark/validation-v1.md) record the 150-event run. For the next experiment, audit candidate spectra and their targeting provenance, then compare redshift and FITS features as separate additions to the catalogue ranker. Evaluate Pröst on the same validation events and document any differences in the candidate pool. [DESI DR1 data](https://data.desi.lbl.gov/doc/releases/dr1/) · [Pröst](https://github.com/alexandergagliano/Prost)
+
 ## Release documentation
 
 - [ZTF SN Ia DR2 overview](https://doi.org/10.1051/0004-6361/202450388) and [release reader](https://github.com/ZwickyTransientFacility/ztfcosmo/blob/main/ztfcosmo/io.py)
