@@ -13,6 +13,11 @@ from .survey import BANDS, LAYER, PIX_SCALE, VIEWER, SourceError
 
 SIZE = 511
 PADDING_ARCSEC = 6
+CORE_ARCSEC = 0.8
+ENVELOPE_ARCSEC = (2., 4.5)
+SN_ANNULUS_ARCSEC = (1.8, 3.)
+SN_MASK_ARCSEC = 1.4
+MIN_BRIDGE_ARCSEC = 2.2
 
 
 def image_request(event, radius):
@@ -24,7 +29,7 @@ def image_request(event, radius):
                 size=SIZE, pixscale=scale, invvar=1)
 
 
-def read_image(path, event, scale):
+def read_image(path, event, scale, *, band="r"):
     with fits.open(path) as hdus:
         header = hdus[0].header
         bands = header.get("BANDS")
@@ -33,7 +38,9 @@ def read_image(path, event, scale):
         shape = (SIZE, SIZE) if bands == "r" else (len(bands), SIZE, SIZE)
         if any(hdu.data is None or hdu.data.shape != shape for hdu in hdus):
             raise SourceError("Unexpected FITS image dimensions.")
-        image, weights = (np.array(hdu.data if bands == "r" else hdu.data[bands.index("r")],
+        if band not in bands:
+            raise SourceError(f"Band {band!r} is absent from the verified cutout.")
+        image, weights = (np.array(hdu.data if bands == "r" else hdu.data[bands.index(band)],
                                    dtype=float) for hdu in hdus)
         wcs = WCS(header, naxis=2)
         weights_wcs = WCS(hdus[1].header, naxis=2)
@@ -115,6 +122,14 @@ def aperture(image, valid, x, y, inner, outer):
     return np.divide(flux, good, out=np.full(len(x), np.nan), where=measured)
 
 
+def bridge_centres(x, y, sn_x, sn_y):
+    dx, dy = (sn_x - x) / 2, (sn_y - y) / 2
+    rotate = np.sqrt(0.5)
+    return ((x + dx, y + dy),
+            (x + (dx - dy) * rotate, y + (dx + dy) * rotate),
+            (x + (dx + dy) * rotate, y + (dy - dx) * rotate))
+
+
 def pixel_features(image, valid, wcs, event, candidates, scale):
     """Measure local light using only candidate and transient coordinates."""
     result = candidates[["event_id", "source_id"]].copy()
@@ -123,7 +138,7 @@ def pixel_features(image, valid, wcs, event, candidates, scale):
         return result
     sn_x, sn_y = wcs.world_to_pixel(SkyCoord(event.ra, event.dec, unit="deg"))
     yy, xx = np.ogrid[:image.shape[0], :image.shape[1]]
-    valid = valid & (np.hypot(xx - sn_x, yy - sn_y) * scale > 1.4)
+    valid = valid & (np.hypot(xx - sn_x, yy - sn_y) * scale > SN_MASK_ARCSEC)
     if not valid.any():
         return result
     sky = np.median(image[valid])
@@ -133,16 +148,14 @@ def pixel_features(image, valid, wcs, event, candidates, scale):
     flux = (image - sky) / noise
     coords = SkyCoord(candidates.ra.to_numpy(), candidates.dec.to_numpy(), unit="deg")
     x, y = wcs.world_to_pixel(coords)
-    core = aperture(flux, valid, x, y, 0, 0.8 / scale)
-    envelope = aperture(flux, valid, x, y, 2 / scale, 4.5 / scale)
-    sn = aperture(flux, valid, np.array([sn_x]), np.array([sn_y]), 1.8 / scale, 3 / scale)[0]
-    dx, dy = (sn_x - x) / 2, (sn_y - y) / 2
-    bridge = aperture(flux, valid, x + dx, y + dy, 0, 0.8 / scale)
-    rotate = np.sqrt(0.5)
-    left = aperture(flux, valid, x + (dx - dy) * rotate, y + (dx + dy) * rotate, 0, 0.8 / scale)
-    right = aperture(flux, valid, x + (dx + dy) * rotate, y + (dy - dx) * rotate, 0, 0.8 / scale)
+    core = aperture(flux, valid, x, y, 0, CORE_ARCSEC / scale)
+    envelope = aperture(flux, valid, x, y, *(r / scale for r in ENVELOPE_ARCSEC))
+    sn = aperture(flux, valid, np.array([sn_x]), np.array([sn_y]),
+                  *(r / scale for r in SN_ANNULUS_ARCSEC))[0]
+    bridge, left, right = (aperture(flux, valid, *xy, 0, CORE_ARCSEC / scale)
+                           for xy in bridge_centres(x, y, sn_x, sn_y))
     contrast = bridge - (left + right) / 2
-    contrast[np.hypot(dx, dy) * scale < 2.2] = np.nan
+    contrast[np.hypot((sn_x - x) / 2, (sn_y - y) / 2) * scale < MIN_BRIDGE_ARCSEC] = np.nan
     result["image_core"] = np.arcsinh(core)
     result["image_envelope"] = np.arcsinh(envelope)
     result["image_sn_to_core"] = np.arcsinh(sn / (1 + np.abs(core)))
