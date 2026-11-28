@@ -65,7 +65,7 @@ index to exclude overlapping coordinates.
 ```powershell
 .\.venv\Scripts\python.exe -m tools.expand_archive --part optical --device cuda
 .\.venv\Scripts\python.exe -m tools.expand_archive --part uv
-.\.venv\Scripts\python.exe -m hermae.train_uv --manifest results/expanded-archive/uv.json --out results/training-150/uv --epochs 150 --samples 192 --device cuda
+.\.venv\Scripts\python.exe -m hermae.train_uv --manifest results/expanded-archive/uv.json --out results/uv-expanded-training --epochs 150 --device cuda
 ```
 
 The archived Swift example below uses the original checkpoint associated with

@@ -39,7 +39,7 @@ if ($LASTEXITCODE -ne 0) { throw "Development refit failed. See refit.log." }
 Write-Host "Stage 2/2  GALEX UV localizer"
 $uvArgs = @(
     "-u", "-m", "hermae.train_uv", "--manifest", "results/expanded-archive/uv.json",
-    "--out", $uv, "--epochs", $epochs, "--samples", 192, "--device", "cuda"
+    "--out", $uv, "--epochs", $epochs, "--device", "cuda"
 )
 & $python @uvArgs @previewArgs 2>&1 | ForEach-Object { $_.ToString() } | Tee-Object -FilePath (Join-Path $Output "uv.log")
 if ($LASTEXITCODE -ne 0) { throw "UV training failed. See uv.log." }

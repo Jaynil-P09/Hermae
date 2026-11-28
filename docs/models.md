@@ -45,7 +45,19 @@ manifest and its FITS hashes for the exact release cohort.
 | Optical transient classifier | 150 | 15 | 32 residuals | 0.0015 |
 | UV localizer | 150 | Fixed rate | 48 patches | 0.0015 |
 
-The galaxy trainer samples up to 32 crops per field. The default seed is 42
+The 150-epoch launcher and standalone trainers use these workloads.
+
+| Model | Training work per epoch |
+| --- | --- |
+| Galaxy U-Net | Up to 64 crops per eligible field |
+| Four host rankers | Two passes over each labelled field, using its original orientation and one additional rotation or reflection |
+| Optical transient classifier | Four orientations per labelled stamp with class balancing |
+| UV localizer | 384 simulated patches per GALEX training image |
+
+The additional orientations preserve the alignment between data channels.
+They reuse labelled examples. UV validation and test use separate random
+streams, so changing the number of training patches leaves those trials fixed.
+The default seed is 42
 and AdamW weight decay is 0.01. The trainers halve the rate during a
 validation plateau and restore the selected checkpoint after all 150
 epochs. The learning rate can fall to 1% of its initial value. The
