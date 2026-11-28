@@ -7,10 +7,10 @@ import re
 
 from astropy.io import fits
 from astropy.time import Time
-from astropy.wcs import WCS
+from astropy.wcs import Sip, WCS
 from astropy.wcs.utils import proj_plane_pixel_scales
 import numpy as np
-from scipy.ndimage import binary_erosion, gaussian_filter, map_coordinates, maximum_filter
+from scipy.ndimage import binary_erosion, binary_fill_holes, gaussian_filter, map_coordinates, maximum_filter
 import torch
 from torch import nn
 
@@ -113,7 +113,7 @@ def aligned_pair(reference, science, rhdu, shdu, ref_fwhm, sci_fwhm, center, siz
     cy, cx = (np.asarray(data.shape) - 1) / 2
     if center is not None:
         from astropy.coordinates import SkyCoord
-        cx, cy = sw.world_to_pixel(SkyCoord(*center, unit="deg"))
+        cx, cy = (float(v) for v in sw.world_to_pixel(SkyCoord(*center, unit="deg")))
     if not (np.isfinite(cx) and np.isfinite(cy) and 0 <= cx < data.shape[1] and 0 <= cy < data.shape[0]):
         raise ValueError("The field center is outside the science image.")
     scale = float(np.mean(proj_plane_pixel_scales(sw)) * 3600)
@@ -129,6 +129,12 @@ def aligned_pair(reference, science, rhdu, shdu, ref_fwhm, sci_fwhm, center, siz
         grid.wcs.cd = grid.wcs.cd * stride
     else:
         grid.wcs.cdelt *= stride
+    if sw.sip is not None:
+        coefficients = []
+        for poly in (sw.sip.a, sw.sip.b, sw.sip.ap, sw.sip.bp):
+            coefficients.append(None if poly is None else
+                                poly * float(stride)**(np.indices(poly.shape).sum(axis=0) - 1))
+        grid.sip = Sip(*coefficients, (sw.sip.crpix - [x0, y0] - 1) / stride + 1)
     # Use the original WCS for projection, including any distortion table.
     y, x = np.indices((size, size), dtype=float)
     sy, sx = y * stride + y0, x * stride + x0
@@ -139,7 +145,8 @@ def aligned_pair(reference, science, rhdu, shdu, ref_fwhm, sci_fwhm, center, siz
         blur = np.sqrt(max(ref_fwhm, sci_fwhm)**2 - fwhm**2) / (2.355 * native_scale)
         valid = np.isfinite(values)
         if "swift" in str(sh.get("TELESCOP", "")).lower():
-            valid &= values > 0  # UVOT sky images use zero outside illuminated detector.
+            # Preserve zero-count interior pixels while excluding detector padding.
+            valid &= binary_fill_holes(values > 0)
         clean = np.where(valid, values, 0)
         coverage = valid.astype(np.float32)
         if blur > .15:
@@ -161,11 +168,23 @@ def probability_map(model, stack, valid, device):
     return np.where(interior, scores, np.nan)
 
 
-def candidates(scores, threshold):
+def candidates(scores, threshold, residual=None):
     clean = np.nan_to_num(scores, nan=-1.)
     y, x = np.where((clean >= threshold) & (clean == maximum_filter(clean, size=7)))
-    order = np.argsort(clean[y, x])[::-1][:25]
-    return [(int(x[i]), int(y[i]), float(clean[y[i], x[i]])) for i in order]
+    # Break saturated-score ties by PSF-smoothed signal and suppress duplicate peaks.
+    signal = gaussian_filter(residual, 1.3)[y, x] if residual is not None else np.zeros(len(x))
+    order = np.lexsort((-signal, -clean[y, x]))
+    peaks = []
+    blocked = np.zeros(scores.shape, bool)
+    for i in order:
+        px, py = int(x[i]), int(y[i])
+        if blocked[py, px]:
+            continue
+        peaks.append((px, py, float(clean[py, px])))
+        blocked[max(0, py - 3):py + 4, max(0, px - 3):px + 4] = True
+        if len(peaks) == 25:
+            break
+    return peaks
 
 
 def write_run(out, reference, science, stack, scores, peaks, grid, positions, band, metadata, truth=None):
@@ -173,8 +192,8 @@ def write_run(out, reference, science, stack, scores, peaks, grid, positions, ba
     from .uv_view import save_uv_views
 
     out.mkdir(parents=True, exist_ok=True)
-    files = save_uv_views(out, reference, science, stack[2], scores, peaks, truth, metadata.get("threshold"))
-    header = grid.to_header()
+    files = save_uv_views(out, reference, science, stack[2], scores, peaks, truth)
+    header = grid.to_header(relax=True)
     fits.HDUList([fits.PrimaryHDU(scores, header), fits.ImageHDU(stack[2], name="RESIDUAL", header=header),
                   fits.ImageHDU(np.isfinite(scores).astype("uint8"), name="COVERAGE", header=header)
                   ]).writeto(out / "uv-scores.fits", overwrite=True)
@@ -205,12 +224,28 @@ def search(args):
     if not np.isfinite(scores).any():
         raise ValueError("The epochs do not overlap enough for a UV search.")
     threshold = checkpoint["threshold"]
-    peaks = candidates(scores, threshold)
+    peaks = candidates(scores, threshold, stack[2])
     x0, y0, stride = crop
     sky = [native.pixel_to_world(x0 + x * stride, y0 + y * stride) for x, y, _ in peaks]
     info.update(display_name=args.name or f"{args.science.stem} / {band.upper()}",
                 evidence="archival_epoch_pair", filter_transfer=band not in GALEX, epoch_mjd=list(dates),
-                threshold=threshold, coverage=float(np.isfinite(scores).mean()),
-                inputs={key: dict(path=str(Path(path).resolve()), sha256=digest(path))
-                        for key, path in (("reference", args.reference), ("science", args.science))})
-    return write_run(args.out, ref, sci, stack, scores, peaks, grid, sky, band, info)
+                threshold=threshold, coverage=float(np.isfinite(scores).mean()), candidate_limit=25,
+                pixel_scale_arcsec=float(np.mean(proj_plane_pixel_scales(grid)) * 3600),
+                inputs={key: dict(path=str(Path(path).resolve()), sha256=digest(path), hdu=hdu, fwhm_arcsec=fwhm)
+                        for key, path, hdu, fwhm in (
+                            ("reference", args.reference, args.reference_hdu, args.reference_fwhm),
+                            ("science", args.science, args.science_hdu, args.science_fwhm))})
+    mark = None
+    if args.compare_position:
+        from astropy.coordinates import SkyCoord
+        expected = SkyCoord(*args.compare_position, unit="deg", frame="icrs")
+        offset = [float(expected.separation(position).arcsec) for position in sky]
+        info["comparison_position"] = dict(ra_deg=expected.ra.deg, dec_deg=expected.dec.deg,
+                                           top_arcsec=offset[0] if offset else None,
+                                           nearest_arcsec=min(offset) if offset else None,
+                                           nearest_rank=offset.index(min(offset)) + 1 if offset else None)
+        px, py = native.world_to_pixel(expected)
+        x, y = float((px - x0) / stride), float((py - y0) / stride)
+        if 0 <= x < scores.shape[1] and 0 <= y < scores.shape[0]:
+            mark = x, y
+    return write_run(args.out, ref, sci, stack, scores, peaks, grid, sky, band, info, mark)

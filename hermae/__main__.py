@@ -54,6 +54,8 @@ def main():
     uv.add_argument("--reference-fwhm", required=True, type=float, help="reference PSF FWHM in arcseconds")
     uv.add_argument("--science-fwhm", required=True, type=float, help="science PSF FWHM in arcseconds")
     uv.add_argument("--center", type=float, nargs=2, metavar=("RA", "DEC"), help="optional field center in ICRS degrees")
+    uv.add_argument("--compare-position", type=float, nargs=2, metavar=("RA", "DEC"),
+                    help="published coordinate for post-inference overlay and offset")
     uv.add_argument("--size", type=int, default=64, help="output cutout width in model pixels")
     uv.add_argument("--name")
     uv.add_argument("--device", default="cpu")
@@ -73,8 +75,9 @@ def main():
             not 0 < fwhm < float("inf") for fwhm in (args.reference_fwhm, args.science_fwhm)
         ):
             uv.error("Use a 40–512 pixel cutout and positive finite PSF widths.")
-        if args.center and not (0 <= args.center[0] < 360 and -90 <= args.center[1] <= 90):
-            uv.error("Use valid ICRS coordinates for the center.")
+        for position in (args.center, args.compare_position):
+            if position and not (0 <= position[0] < 360 and -90 <= position[1] <= 90):
+                uv.error("Use valid ICRS coordinates.")
         from .uv import search
         try:
             result = search(args)

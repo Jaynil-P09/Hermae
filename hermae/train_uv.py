@@ -133,7 +133,7 @@ def showcase(out, net, inputs, examples, threshold, device):
         if key in chosen or ex["truth"] is None:
             continue
         scores = probability_map(net, stack, valid, device)
-        peaks = candidates(scores, threshold)
+        peaks = candidates(scores, threshold, stack[2])
         tx, ty = ex["truth"]
         if not peaks or np.hypot(peaks[0][0] - tx, peaks[0][1] - ty) > 3:
             continue

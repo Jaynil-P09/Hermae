@@ -5,7 +5,7 @@ from matplotlib import colormaps
 from PIL import Image, ImageDraw
 
 
-def save_uv_views(out, reference, science, residual, scores, peaks, truth, threshold):
+def save_uv_views(out, reference, science, residual, scores, peaks, truth):
     valid = np.isfinite(scores)
     limits = np.percentile(np.concatenate((reference[valid], science[valid])), [5, 99.6])
     low, high = limits
