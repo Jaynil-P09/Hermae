@@ -216,7 +216,7 @@ def pair(folder, run):
     return layers, tables, None
 
 
-def survey(run):
+def survey(folder, run):
     entry = run["input"]
     path = Path(entry["path"])
     preview = None
@@ -235,6 +235,21 @@ def survey(run):
             ("Target x", x, "px"), ("Target y", y, "px"),
             (entry.get("coverage_metric", "Finite pixels"), 100 * entry["valid_fraction"], "%"),
             ("Passband", entry["band"], "")]
+    projected = run.get("projection")
+    if projected and preview:
+        image = folder / projected["file"]
+        if image.parent == folder and image.is_file() and digest(image) == projected["sha256"]:
+            layers.insert(0, layer("Estimated supernova position", "Swift estimate on GALEX pixels",
+                                   png_url(image.read_bytes()),
+                                   "The green box locates the estimate in the full mosaic. In the pixel detail, "
+                                   "the diamond marks the model estimate and the cross marks the published position. "
+                                   "Marker size is for display.",
+                                   legend=(("green", "Model estimate"), ("amber", "Published position"))))
+            rows.extend([("Model RA", projected["estimate"]["ra_deg"], "deg"),
+                         ("Model declination", projected["estimate"]["dec_deg"], "deg"),
+                         ("Model X", projected["estimate_pixel"][0], "px"),
+                         ("Model Y", projected["estimate_pixel"][1], "px"),
+                         ("Offset from published position", projected["offset_arcsec"], "arcsec")])
     table_data = dict(title="Survey measurements", filename="survey-measurements.csv", rows=[
         dict(metric=name, value=str(value), unit=unit) for name, value, unit in rows])
     return layers, [table_data], None
@@ -287,7 +302,7 @@ def run_payload(folder, output_parent):
     summary = json_file(folder / "run.json")
     mode = summary["mode"]
     if mode == "survey_image":
-        layers, tables, comparison = survey(summary)
+        layers, tables, comparison = survey(folder, summary)
     elif mode == "uv_search":
         layers, tables, comparison = ultraviolet(folder, summary)
     elif mode in {"known_position", "pair_search"}:
@@ -304,6 +319,10 @@ def run_payload(folder, output_parent):
             source = Path(entry["path"])
             if source.is_file() and digest(source) == entry["sha256"]:
                 artifacts.append(file_link(source, output_parent))
+    if projection := summary.get("projection"):
+        source = Path(projection["source_run"])
+        if source.is_file() and digest(source) == projection["source_sha256"]:
+            artifacts.append(dict(file_link(source, output_parent), name="Swift localizer run.json"))
     return dict(name=summary.get("display_name", folder.name), summary=summary, layers=layers, tables=tables,
                 comparison=comparison, artifacts=artifacts)
 

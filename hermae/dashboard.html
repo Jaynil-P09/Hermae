@@ -361,6 +361,14 @@
       return [simulation ? "Held-out injection" : "Archival epoch comparison",body,facts];
     }
     if (s.mode === "survey_image") {
+      if (view.title === "Estimated supernova position") {
+        const projection = s.projection, estimate = projection.estimate;
+        return ["Model estimate on the NUV mosaic",
+          "Hermae localized a brightness change from two Swift epochs and projected that sky position onto the archival GALEX NUV mosaic.",
+          [["Model RA",fmt(estimate.ra_deg,6)+"°"],["Model Dec",fmt(estimate.dec_deg,6)+"°"],
+           ["Offset from published position",arcsec(projection.offset_arcsec)],
+           ["Localization filter","Swift " + projection.source_filter],["Display filter","GALEX NUV"]]];
+      }
       return [s.finding_title,s.finding,[["Survey",s.input.source],["Passband",s.input.band],
         ["Published host",s.reported_host],[s.input.coverage_metric || "Finite pixels",coverage(s.input.valid_fraction)]]];
     }

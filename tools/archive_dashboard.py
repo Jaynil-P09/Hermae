@@ -10,6 +10,7 @@ from astropy.wcs import WCS
 
 from hermae.dashboard import dashboard
 from hermae.development import digest
+from hermae.uv_projection import save_projection
 from tools.expand_archive import TARGETS
 
 
@@ -64,6 +65,12 @@ def main():
         "UV / injection tests": sorted(p.parent for p in (root / "uv-model/examples").glob("*/run.json")),
         "UV / GALEX references": [reference_run(row, root / "uv-references", positions) for row in uv],
     }
+    swift = root / "swift/2023ixf-uvw2/run.json"
+    m101 = nasa / "runs/2023ixf/galex-nuv"
+    if swift.is_file():
+        for folder in (m101, root / "uv-references/2023ixf-nuv"):
+            if (folder / "run.json").is_file():
+                save_projection(folder, swift)
     expanded = [(name, path) for name, paths in groups.items() for path in paths]
     dashboard([], root / "dashboard.html", collections=expanded)
     previous = {
@@ -73,6 +80,12 @@ def main():
     }
     original = [(name, path) for name, paths in previous.items() for path in paths if (path / "run.json").is_file()]
     preview = nasa / "field-preview.png"
+    archive = [(name, path) for name, path in original if name == "NASA archive images"]
+    if archive:
+        dashboard([], nasa / "archive-dashboard.html", collections=archive,
+                  previews=[("NASA archive images", preview)] if preview.is_file() else [])
+    if (m101 / "uv-model-estimate.png").is_file():
+        dashboard(m101, m101 / "dashboard.html")
     dashboard([], results / "dashboard.html", collections=[*expanded, *original],
               previews=[("NASA fields", preview), ("NASA archive images", preview)] if preview.is_file() else [])
     print(f"{len(optical)} optical runs, {len(uv)} GALEX references and "

@@ -49,6 +49,13 @@ Localization of a new source requires a second observation in the same
 filter. [Swift UVOT instrument log](https://heasarc.gsfc.nasa.gov/W3Browse/swift/swiftuvlog.html)
 [Published SN 2023ixf coordinates](https://www.wis-tns.org/object/2023ixf)
 
+Open **M101 in near ultraviolet** to see the same top Swift candidate
+projected through the WCS of the original GALEX NUV FITS. The full field
+shows its location on the galaxy. The nearest-neighbor inset separates
+the model diamond from the published cross at their fractional-pixel
+coordinates. The 0.85 arcsec separation measures agreement with the
+published position. The marker size is for display.
+
 ## Run locally
 
 Run these PowerShell commands from the v2 root. The optical job expects the
