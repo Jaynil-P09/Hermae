@@ -46,6 +46,19 @@ def main():
     pair.add_argument("--ranker-weights", type=Path)
     pair.add_argument("--transient-weights", type=Path)
     pair.add_argument("--device", default="cpu")
+    uv = commands.add_parser("uv-search", help="localize UV residuals in a same-filter epoch pair")
+    uv.add_argument("--reference", required=True, type=Path)
+    uv.add_argument("--science", required=True, type=Path)
+    uv.add_argument("--reference-hdu", type=hdu_key, default=0)
+    uv.add_argument("--science-hdu", type=hdu_key, default=0)
+    uv.add_argument("--reference-fwhm", required=True, type=float, help="reference PSF FWHM in arcseconds")
+    uv.add_argument("--science-fwhm", required=True, type=float, help="science PSF FWHM in arcseconds")
+    uv.add_argument("--center", type=float, nargs=2, metavar=("RA", "DEC"), help="optional field center in ICRS degrees")
+    uv.add_argument("--size", type=int, default=64, help="output cutout width in model pixels")
+    uv.add_argument("--name")
+    uv.add_argument("--device", default="cpu")
+    uv.add_argument("--weights", type=Path, required=True)
+    uv.add_argument("--out", type=Path, required=True)
     view = commands.add_parser("dashboard", help="build an offline HTML view from saved run outputs")
     view.add_argument("--run", action="append", type=Path, default=[],
                       help="saved run directory; repeat to combine results")
@@ -55,6 +68,20 @@ def main():
                       help="attach a PNG preview to a named collection")
     view.add_argument("--out", type=Path)
     args = parser.parse_args()
+    if args.command == "uv-search":
+        if not 40 <= args.size <= 512 or any(
+            not 0 < fwhm < float("inf") for fwhm in (args.reference_fwhm, args.science_fwhm)
+        ):
+            uv.error("Use a 40–512 pixel cutout and positive finite PSF widths.")
+        if args.center and not (0 <= args.center[0] < 360 and -90 <= args.center[1] <= 90):
+            uv.error("Use valid ICRS coordinates for the center.")
+        from .uv import search
+        try:
+            result = search(args)
+        except (OSError, ValueError, KeyError, IndexError, RuntimeError) as exc:
+            uv.exit(1, f"hermae: {exc}\n")
+        print(f"{result['status']} · {result['candidates']} UV candidates · {args.out}")
+        return
     if args.command == "dashboard":
         from .dashboard import dashboard
         try:
