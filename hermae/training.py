@@ -4,6 +4,17 @@ import math
 
 
 DEFAULT_EPOCHS = 150
+GALAXY_CROPS_PER_FIELD = 64
+RANKER_VIEWS_PER_FIELD = 2
+TRANSIENT_VIEWS_PER_STAMP = 4
+UV_PATCHES_PER_IMAGE = 384
+
+
+def orient_stamps(images, orientation):
+    """Apply a square-image rotation or reflection to every channel together."""
+    if orientation % 4:
+        images = images.rot90(orientation % 4, (-2, -1))
+    return images.flip((-1,)) if orientation >= 4 else images
 
 
 def optimization_arguments(parser, *, learning_rate, patience):

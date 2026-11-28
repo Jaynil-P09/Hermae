@@ -12,7 +12,7 @@ import torch
 from . import train_galaxy, train_ranker, train_transient
 from .development import Benchmark, digest
 from .galaxy import GalaxyDetector
-from .training import DEFAULT_EPOCHS
+from .training import DEFAULT_EPOCHS, GALAXY_CROPS_PER_FIELD, RANKER_VIEWS_PER_FIELD, TRANSIENT_VIEWS_PER_STAMP
 from .training_device import add_device_argument, resolve_device
 from .training_preview import add_preview_argument
 
@@ -44,6 +44,7 @@ def schedule(prior, model, history_key, device, fields, epochs):
 def refit_galaxy(data, ids, source, folder, device, epochs, *, live_preview=None):
     prior = prior_report(source, data.split_hash)
     args, rates = schedule(prior, prior, "history", device, ("batch_size", "crops_per_field"), epochs)
+    args.crops_per_field = max(args.crops_per_field, GALAXY_CROPS_PER_FIELD)
     args.live_preview = live_preview
     tensors, used = train_galaxy.crops(data, ids, np.random.default_rng(args.seed), args.crops_per_field)
     if not used:
@@ -56,7 +57,8 @@ def refit_galaxy(data, ids, source, folder, device, epochs, *, live_preview=None
     torch.save(dict(kind="hermae-galaxy-v1", model=model.cpu().state_dict(), footprint_threshold=footprint,
                     centre_threshold=centre, split_sha256=data.split_hash), path)
     save_report(folder / "report.json", source_sha256=digest(source), split_sha256=data.split_hash,
-                device=device, train_ids=used, training_crops=len(tensors[0]), history=progress.history,
+                device=device, train_ids=used, training_crops=len(tensors[0]), crops_per_field=args.crops_per_field,
+                history=progress.history,
                 dropped={e: data.images.get(e, {}).get("status", "no audited image")
                          if data.images.get(e, {}).get("status") != "ok" else "no valid crops"
                          for e in ids if e in unused}, transferred_thresholds=[footprint, centre])
@@ -74,6 +76,7 @@ def refit_rankers(data, ids, source, folder, device, epochs, detector_path=None,
     for mode in ("image_only", "catalogue_fusion"):
         use_catalogue = mode == "catalogue_fusion"
         args, rates = schedule(prior, prior["models"][mode], "epoch_metrics", device, ("batch_fields",), epochs)
+        args.views_per_field = RANKER_VIEWS_PER_FIELD
         args.live_preview = live_preview
         args.preview_backend = "U-Net candidates" if detector_path else "Classical candidates"
         model, progress, used = train_ranker.fit(fields, None, use_catalogue, args, rates)
@@ -87,7 +90,8 @@ def refit_rankers(data, ids, source, folder, device, epochs, detector_path=None,
             elif len(pools["union"]) < 2:
                 dropped[event] = "no_negative_candidate"
         print(f"{mode} fitted on {len(used)} fields with a unique reference and a negative candidate", flush=True)
-        result[mode] = dict(train_ids=used, dropped=dropped, history=progress.history)
+        result[mode] = dict(train_ids=used, dropped=dropped, views_per_field=args.views_per_field,
+                            history=progress.history)
     save_report(folder / "report.json", source_sha256=digest(source), split_sha256=data.split_hash,
                 device=device, detector_sha256=checkpoint_hash, review_gap=None, models=result)
     return {mode: len(record["train_ids"]) for mode, record in result.items()}
@@ -111,12 +115,14 @@ def refit_transient(data, manifest_path, source, folder, device, epochs, supplem
     print(f"Transient CNN | processed {len(pairs)} development pairs and found {len(audit)} labelled residuals",
           flush=True)
     args, rates = schedule(prior, prior, "history", device, ("batch_size",), epochs)
+    args.views_per_stamp = TRANSIENT_VIEWS_PER_STAMP
     args.live_preview = live_preview
     model, progress = train_transient.fit(images, target, None, args, rates, audit=audit)
     torch.save(dict(kind="hermae-transient-v1", model=model.cpu().state_dict(), baseline_sigma=prior["baseline_sigma"],
                     threshold=prior["threshold"], split_sha256=data.split_hash), folder / "transient.pt")
     counts = dict(pairs=len(pairs), exposures=len({p[k]["sha256"] for p in pairs for k in ("reference", "science")}),
-                  labelled_residuals=len(audit), confirmed_alerts=int(target.sum()))
+                  labelled_residuals=len(audit), confirmed_alerts=int(target.sum()),
+                  views_per_stamp=args.views_per_stamp, stamp_presentations_per_epoch=progress.history[0]["stamp_views"])
     # A pair can contribute a confirmed alert or a labelled dipole to the supervised loss.
     used_pairs = {(row["reference_sha256"], row["science_sha256"]) for row in audit}
     counts["pairs_with_labelled_residuals"] = len(used_pairs)

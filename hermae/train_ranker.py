@@ -15,7 +15,7 @@ from .fits_input import sn_position
 from .galaxy import GalaxyDetector, pixels
 from .host import rank_hosts
 from .ranker import HostRanker, candidate_inputs, score
-from .training import BestCheckpoint, optimization_arguments, validate_optimization
+from .training import BestCheckpoint, RANKER_VIEWS_PER_FIELD, optimization_arguments, orient_stamps, validate_optimization
 from .training_device import add_device_argument, resolve_device
 from .training_preview import add_preview_argument, captured_forward, preview_for
 
@@ -117,16 +117,25 @@ def fit(fields, validation, use_catalogue, args, rates=None):
     mode = "Catalogue fusion" if use_catalogue else "Image-first"
     backend = getattr(args, "preview_backend", None)
     title = f"{backend} / {mode}" if backend else f"Host ranker / {mode}"
+    views = args.views_per_field
+    field_views = len(eligible) * views
+    print(f"{title} | {field_views} field views per epoch ({len(eligible)} labelled fields)", flush=True)
     for epoch in range(1, args.epochs + 1):
         checkpoint.start_epoch(optimiser)
         model.train()
         totals = []
         batches = (len(eligible) + args.batch_fields - 1) // args.batch_fields
-        for batch in np.array_split(rng.permutation(len(eligible)), batches):
+        orientations = [0, *rng.choice(np.arange(1, 8), size=views - 1, replace=False)]
+        work = ((orientation, batch) for orientation in orientations
+                for batch in np.array_split(rng.permutation(len(eligible)), batches))
+        for orientation, batch in work:
             losses = []
             for idx in batch:
                 event, tensors, _, reference = eligible[idx]
                 inputs = tuple(value.to(args.device) for value in tensors)
+                if orientation:
+                    inputs = (orient_stamps(inputs[0], orientation), orient_stamps(inputs[1], orientation),
+                              *inputs[2:])
                 if preview and preview.active(epoch):
                     logits, feature = captured_forward(model, model.encoder[1], *inputs)
                     local, wide = inputs[:2]
@@ -150,14 +159,15 @@ def fit(fields, validation, use_catalogue, args, rates=None):
         train_loss = float(np.mean(totals))
         if rates is not None:
             print(f"{mode} epoch {epoch}/{args.epochs}  loss {train_loss:.4f}", flush=True)
-            checkpoint.observe(model, optimiser, (-train_loss,), train_loss=train_loss)
+            checkpoint.observe(model, optimiser, (-train_loss,), train_loss=train_loss, field_views=field_views)
             continue
         model.eval()
         top1, mrr = validation_score(model, validation, pool, args.device)
         key = (top1, mrr) if mrr is not None else (-train_loss,)
         print(f"{mode} epoch {epoch}/{args.epochs}"
               f"  loss {train_loss:.4f}  {pool} validation top-1 {top1}", flush=True)
-        checkpoint.observe(model, optimiser, key, train_loss=train_loss, validation_top1=top1, validation_mrr=mrr)
+        checkpoint.observe(model, optimiser, key, train_loss=train_loss, field_views=field_views,
+                           validation_top1=top1, validation_mrr=mrr)
     return checkpoint.restore(model), checkpoint, [field[0] for field in eligible]
 
 
@@ -204,6 +214,7 @@ def main():
     add_preview_argument(parser)
     optimization_arguments(parser, learning_rate=.001, patience=18)
     parser.add_argument("--batch-fields", type=int, default=8)
+    parser.add_argument("--views-per-field", type=int, choices=range(1, 9), default=RANKER_VIEWS_PER_FIELD)
     parser.add_argument("--seed", default=42, type=int)
     args = parser.parse_args()
     validate_optimization(parser, args)
@@ -221,7 +232,7 @@ def main():
                   if args.galaxy_weights else None, seed=args.seed, epochs=args.epochs,
                   device=args.device, device_name=args.device_name,
                   learning_rate=args.learning_rate, weight_decay=args.weight_decay,
-                  patience=args.patience, batch_fields=args.batch_fields,
+                  patience=args.patience, batch_fields=args.batch_fields, views_per_field=args.views_per_field,
                   train_exclusions=train_exclusions, validation_exclusions=valid_exclusions, models={})
     for mode in ("image_only", "catalogue_fusion"):
         use_catalogue = mode == "catalogue_fusion"

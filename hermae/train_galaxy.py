@@ -17,7 +17,7 @@ from torch.nn import functional as F
 from .detection import DetectorConfig, detect, detection_inputs
 from .development import Benchmark
 from .galaxy import GalaxyDetector, GalaxyNet, instances, pixels
-from .training import BestCheckpoint, optimization_arguments, validate_optimization
+from .training import BestCheckpoint, GALAXY_CROPS_PER_FIELD, optimization_arguments, validate_optimization
 from .training_device import add_device_argument, resolve_device
 from .training_preview import add_preview_argument, captured_forward, preview_for
 
@@ -319,7 +319,7 @@ def main():
     parser.add_argument("--out", type=Path, required=True)
     optimization_arguments(parser, learning_rate=.002, patience=12)
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--crops-per-field", type=int, default=32)
+    parser.add_argument("--crops-per-field", type=int, default=GALAXY_CROPS_PER_FIELD)
     parser.add_argument("--seed", type=int, default=42)
     add_device_argument(parser)
     add_preview_argument(parser)

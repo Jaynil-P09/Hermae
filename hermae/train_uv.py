@@ -11,7 +11,7 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader, TensorDataset
 
 from .development import digest
-from .training import DEFAULT_EPOCHS
+from .training import DEFAULT_EPOCHS, UV_PATCHES_PER_IMAGE
 from .training_device import add_device_argument, resolve_device
 from .training_preview import add_preview_argument, preview_for
 from .uv import GALEX, SIZE, UVLocalizer, candidates, features, probability_map, read_uv, robust_scale, write_run
@@ -159,7 +159,7 @@ def main():
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--epochs", type=int, default=DEFAULT_EPOCHS, help="number of epochs to complete")
-    parser.add_argument("--samples", type=int, default=128, help="Training patches per GALEX image")
+    parser.add_argument("--samples", type=int, default=UV_PATCHES_PER_IMAGE, help="Training patches per GALEX image")
     parser.add_argument("--seed", type=int, default=42)
     add_device_argument(parser)
     add_preview_argument(parser)
@@ -169,13 +169,15 @@ def main():
     device, device_name = resolve_device(parser, args.device)
     preview = preview_for(args)
     torch.manual_seed(args.seed)
-    rng = np.random.default_rng(args.seed)
     args.out.mkdir(parents=True, exist_ok=True)
     fields = read_fields(args.manifest)
-    groups = split_fields(fields, rng)
-    x, y, training = simulate(fields, groups["train"], args.samples, rng)
-    vx, _, validation = simulate(fields, groups["validation"], 96, rng)
-    tx, _, test = simulate(fields, groups["test"], 128, rng, retain=True)
+    groups = split_fields(fields, np.random.default_rng(args.seed))
+    train_rng, validation_rng, test_rng = [
+        np.random.default_rng(seed) for seed in np.random.SeedSequence(args.seed).spawn(3)
+    ]
+    x, y, training = simulate(fields, groups["train"], args.samples, train_rng)
+    vx, _, validation = simulate(fields, groups["validation"], 96, validation_rng)
+    tx, _, test = simulate(fields, groups["test"], 128, test_rng, retain=True)
     print(f"{len(x)} training, {len(vx)} validation and {len(tx)} test patches", flush=True)
     loader = DataLoader(TensorDataset(torch.from_numpy(x), torch.from_numpy(y), torch.arange(len(x))),
                         batch_size=48, shuffle=True)
@@ -227,7 +229,8 @@ def main():
     report = dict(evidence="injections_on_real_galex_backgrounds", device=device_name, seed=args.seed,
                   field_split=groups, photos_by_band={band: sum(row[3] == band for rows in fields.values()
                                                                 for row in rows) for band in GALEX},
-                  training_patches=len(x), validation_patches=len(vx), test_patches=len(tx),
+                  training_patches=len(x), patches_per_training_image=args.samples,
+                  validation_patches=len(vx), test_patches=len(tx),
                   epochs=args.epochs, checkpoint_epoch=checkpoint["epoch"], threshold=threshold, history=history,
                   test={band: metrics(test_maps[[ex["band"] == band for ex in test]],
                                       [ex for ex in test if ex["band"] == band], threshold)

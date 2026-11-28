@@ -11,7 +11,8 @@ from torch.nn import functional as F
 
 from .development import Benchmark, digest
 from .pair import difference, frames, residual_candidates
-from .training import BestCheckpoint, optimization_arguments, validate_optimization
+from .training import (BestCheckpoint, TRANSIENT_VIEWS_PER_STAMP, optimization_arguments,
+                       orient_stamps, validate_optimization)
 from .transient import TransientNet, classify, stamps
 from .training_device import add_device_argument, resolve_device
 from .training_preview import add_preview_argument, captured_forward, preview_for
@@ -79,21 +80,21 @@ def fit(images, target, validation, args, rates=None, *, audit=None):
     checkpoint = BestCheckpoint(args.patience, rates)
     preview = preview_for(args)
     per_class = max(map(len, groups))
+    views = args.views_per_stamp
+    presentations = 2 * per_class * views
+    print(f"Transient CNN | {presentations} balanced stamp presentations per epoch ({len(images)} labelled stamps)",
+          flush=True)
     for epoch in range(1, args.epochs + 1):
         checkpoint.start_epoch(optimiser)
-        if rates is None:
-            balanced = [rng.choice(group, size=per_class, replace=True) for group in groups]
-        else:
-            # Visit every labelled stamp before repeating examples from the smaller class.
-            balanced = [rng.permutation(np.concatenate((group, rng.choice(group, per_class - len(group)))))
-                        for group in groups]
-        one_each = np.stack(balanced, axis=1)
+        # Each orientation includes all labelled stamps, with balanced class counts.
+        balanced = [rng.permutation(np.concatenate((group, rng.choice(group, per_class - len(group)))))
+                    for group in groups]
+        one_each = torch.from_numpy(np.stack(balanced, axis=1).reshape(-1))
         totals = []
-        for batch in torch.from_numpy(one_each.reshape(-1)).split(args.batch_size):
-            batch_images = images[batch].to(args.device)
-            batch_images = torch.rot90(batch_images, int(rng.integers(4)), (-2, -1))
-            if rng.integers(2):
-                batch_images = batch_images.flip((-1,))
+        orientations = rng.choice(8, size=views, replace=False)
+        work = ((orientation, batch) for orientation in orientations for batch in one_each.split(args.batch_size))
+        for orientation, batch in work:
+            batch_images = orient_stamps(images[batch].to(args.device), orientation)
             if preview and preview.active(epoch):
                 logits, feature = captured_forward(model, model.features[1], batch_images)
                 scores = logits.detach().sigmoid().cpu().tolist()
@@ -118,7 +119,7 @@ def fit(images, target, validation, args, rates=None, *, audit=None):
         train_loss = float(np.mean(totals))
         if rates is not None:
             print(f"Transient CNN epoch {epoch}/{args.epochs}  loss {train_loss:.4f}", flush=True)
-            checkpoint.observe(model, optimiser, (-train_loss,), train_loss=train_loss)
+            checkpoint.observe(model, optimiser, (-train_loss,), train_loss=train_loss, stamp_views=presentations)
             continue
         guessed, threshold, options = validation_metrics(model.eval(), validation, args.device)
         operating_point = options[threshold]
@@ -132,7 +133,8 @@ def fit(images, target, validation, args, rates=None, *, audit=None):
         key = (recovered, -alerts, -error) if error is not None else (-train_loss,)
         print(f"Transient CNN epoch {epoch}/{args.epochs}  loss {train_loss:.4f}"
               f"  validation {recovered} recovered, {alerts} control alerts", flush=True)
-        checkpoint.observe(model, optimiser, key, train_loss=train_loss, validation_recovered=recovered,
+        checkpoint.observe(model, optimiser, key, train_loss=train_loss, stamp_views=presentations,
+                           validation_recovered=recovered,
                            validation_control_alerts=alerts, validation_score_error=error, threshold=threshold)
     return checkpoint.restore(model), checkpoint
 
@@ -172,6 +174,7 @@ def main():
     add_preview_argument(parser)
     optimization_arguments(parser, learning_rate=.0015, patience=15)
     parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--views-per-stamp", type=int, choices=range(1, 9), default=TRANSIENT_VIEWS_PER_STAMP)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
     validate_optimization(parser, args)
@@ -199,7 +202,8 @@ def main():
     report = dict(manifest_sha256=digest(args.manifest), split_sha256=data.split_hash, seed=args.seed,
                   epochs=args.epochs, device=args.device, device_name=args.device_name,
                   learning_rate=args.learning_rate, weight_decay=args.weight_decay,
-                  patience=args.patience, batch_size=args.batch_size, selected_epoch=checkpoint.best_epoch,
+                  patience=args.patience, batch_size=args.batch_size, views_per_stamp=args.views_per_stamp,
+                  selected_epoch=checkpoint.best_epoch,
                   history=checkpoint.history, loss=[row["train_loss"] for row in checkpoint.history],
                   baseline_sigma=BASELINE, threshold=threshold, training_examples=audit,
                   baseline=baseline, classifier=options[threshold], thresholds=options)
