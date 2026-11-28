@@ -1,0 +1,424 @@
+{
+  "purpose": "external showcase",
+  "registered_for_training": false,
+  "targets": [
+    {
+      "name": "2023ixf",
+      "host": "M101",
+      "ztf": "ZTF23aaklqou",
+      "ra": "14h03m38.562s",
+      "dec": "+54d18m41.94s",
+      "date": "2023-05-19",
+      "wide_scale": 3.2,
+      "search_radius_arcsec": 340,
+      "feature": "Pinwheel spiral and an off-nucleus explosion",
+      "source": "https://www.wis-tns.org/object/2023ixf",
+      "ra_deg": 210.910675,
+      "dec_deg": 54.31165,
+      "nearest_old_field_arcsec": 38988.824835522115,
+      "images": [
+        {
+          "source": "Legacy Surveys",
+          "kind": "detail",
+          "path": "2023ixf/legacy-detail-r.fits",
+          "url": "https://www.legacysurvey.org/viewer/fits-cutout?ra=210.910675&dec=54.31165&layer=ls-dr10&bands=r&size=511&pixscale=0.262&invvar=1",
+          "sha256": "b408ce399bf74e7f1a588d734309f4b0a2a946f3290201c0069a5994c64b91ed",
+          "image_scale_arcsec": 0.262,
+          "shape_yx": [
+            511,
+            511
+          ],
+          "valid_fraction": 1.0,
+          "sn_pixel": [
+            255.0,
+            254.9999999999518
+          ],
+          "science_hdu": 0,
+          "ivar_hdu": 1
+        },
+        {
+          "source": "NASA MAST / Pan-STARRS1",
+          "kind": "r stack",
+          "path": "2023ixf/mast-pan-starrs-r.fits",
+          "url": "https://ps1images.stsci.edu/cgi-bin/fitscut.cgi?ra=210.910675&dec=54.31165&size=1024&format=fits&red=%2Frings.v3.skycell%2F2381%2F052%2Frings.v3.skycell.2381.052.stk.r.unconv.fits",
+          "sha256": "993d9254558c4ac103280c9a26d0f29777d69c33e2089849d93591d6a9d45325",
+          "shape_yx": [
+            1024,
+            1024
+          ],
+          "valid_fraction": 1.0,
+          "sn_pixel": [
+            512.4028621022862,
+            512.0720733654352
+          ],
+          "science_hdu": 0,
+          "filter_header": ""
+        },
+        {
+          "source": "Legacy Surveys",
+          "kind": "wide",
+          "path": "2023ixf/legacy-wide-r.fits",
+          "url": "https://www.legacysurvey.org/viewer/fits-cutout?ra=210.910675&dec=54.31165&layer=ls-dr10&bands=r&size=511&pixscale=3.2",
+          "sha256": "498ed94c64acdf9315df317aadc0acbf7d8dc4d59f06b9c2a5a45c3b506df5cd",
+          "image_scale_arcsec": 3.2,
+          "shape_yx": [
+            511,
+            511
+          ],
+          "valid_fraction": 1.0,
+          "sn_pixel": [
+            255.0,
+            254.99999999999605
+          ],
+          "science_hdu": 0,
+          "ivar_hdu": null
+        },
+        {
+          "source": "NASA GSFC SkyView",
+          "kind": "GALEX Near UV",
+          "band": "near ultraviolet",
+          "path": "2023ixf/skyview-galex-nuv.fits",
+          "url": "https://skyview.gsfc.nasa.gov/cgi-bin/images?Survey=GALEX+Near+UV&Position=210.910675%2C54.31165&Return=FITS&Pixels=600&Size=0.44&Coordinates=J2000&Projection=Tan",
+          "sha256": "22b32811618b31506d3c3969b033c5df8535e9a7a0ec224bee9e1b277461766b",
+          "shape_yx": [
+            600,
+            600
+          ],
+          "sn_pixel": [
+            299.5016305596131,
+            299.5009148231834
+          ],
+          "valid_fraction": 1.0,
+          "science_hdu": 0
+        }
+      ],
+      "pairs": [],
+      "unavailable": {
+        "IRSA": "No verified exposure pair downloaded. The metadata service returned a database connection error on follow-up queries.",
+        "Fink": "No alert triplet with usable celestial WCS was verified."
+      },
+      "alert_stamps": []
+    },
+    {
+      "name": "2021rhu",
+      "host": "NGC 7814",
+      "ztf": "ZTF21abiuvdk",
+      "ra": "00h03m15.429s",
+      "dec": "+16d08m44.51s",
+      "date": "2021-07-01",
+      "wide_scale": 0.83,
+      "search_radius_arcsec": 110,
+      "feature": "Edge-on spiral with a dark dust lane",
+      "source": "https://www.wis-tns.org/object/2021rhu",
+      "ra_deg": 0.8142874999999999,
+      "dec_deg": 16.14569722222222,
+      "nearest_old_field_arcsec": 10984.880764196085,
+      "images": [
+        {
+          "source": "Legacy Surveys",
+          "kind": "detail",
+          "path": "2021rhu/legacy-detail-r.fits",
+          "url": "https://www.legacysurvey.org/viewer/fits-cutout?ra=0.8142874999999999&dec=16.14569722222222&layer=ls-dr10&bands=r&size=511&pixscale=0.262&invvar=1",
+          "sha256": "f0462362ba546bc567fa7ee283438fa295bc530831b394d308c236daf0a3de8e",
+          "image_scale_arcsec": 0.262,
+          "shape_yx": [
+            511,
+            511
+          ],
+          "valid_fraction": 1.0,
+          "sn_pixel": [
+            255.00000000000108,
+            255.000000000223
+          ],
+          "science_hdu": 0,
+          "ivar_hdu": 1
+        },
+        {
+          "source": "NASA MAST / Pan-STARRS1",
+          "kind": "r stack",
+          "path": "2021rhu/mast-pan-starrs-r.fits",
+          "url": "https://ps1images.stsci.edu/cgi-bin/fitscut.cgi?ra=0.8142874999999999&dec=16.14569722222222&size=1024&format=fits&red=%2Frings.v3.skycell%2F1678%2F003%2Frings.v3.skycell.1678.003.stk.r.unconv.fits",
+          "sha256": "777ce514eff819febe3b675999af61773f79f00265337e1c69c52783467d1f0c",
+          "shape_yx": [
+            1024,
+            1024
+          ],
+          "valid_fraction": 1.0,
+          "sn_pixel": [
+            511.5784717192255,
+            512.031528009742
+          ],
+          "science_hdu": 0,
+          "filter_header": ""
+        },
+        {
+          "source": "Legacy Surveys",
+          "kind": "wide",
+          "path": "2021rhu/legacy-wide-r.fits",
+          "url": "https://www.legacysurvey.org/viewer/fits-cutout?ra=0.8142874999999999&dec=16.14569722222222&layer=ls-dr10&bands=r&size=511&pixscale=0.83",
+          "sha256": "677d875343af5454b0dcb06031d7020c184d72bd8b60f1d7fa69b5bc03ac1c8c",
+          "image_scale_arcsec": 0.83,
+          "shape_yx": [
+            511,
+            511
+          ],
+          "valid_fraction": 1.0,
+          "sn_pixel": [
+            255.00000000000034,
+            255.00000000007037
+          ],
+          "science_hdu": 0,
+          "ivar_hdu": null
+        }
+      ],
+      "pairs": [],
+      "unavailable": {
+        "IRSA": "No verified exposure pair downloaded. The metadata service returned a database connection error on follow-up queries.",
+        "Fink": "No alert triplet with usable celestial WCS was verified."
+      },
+      "alert_stamps": []
+    },
+    {
+      "name": "2020oi",
+      "host": "M100",
+      "ztf": "ZTF20aaelulu",
+      "ra": "12h22m54.930s",
+      "dec": "+15d49m24.96s",
+      "date": "2020-01-07",
+      "wide_scale": 1.15,
+      "search_radius_arcsec": 130,
+      "feature": "Bright spiral nucleus and a nearby supernova",
+      "source": "https://www.wis-tns.org/object/2020oi",
+      "ra_deg": 185.728875,
+      "dec_deg": 15.823599999999999,
+      "nearest_old_field_arcsec": 8831.273858582832,
+      "images": [
+        {
+          "source": "Legacy Surveys",
+          "kind": "detail",
+          "path": "2020oi/legacy-detail-r.fits",
+          "url": "https://www.legacysurvey.org/viewer/fits-cutout?ra=185.728875&dec=15.823599999999999&layer=ls-dr10&bands=r&size=511&pixscale=0.262&invvar=1",
+          "sha256": "bcb6aaf79706f03e78f6db4cf0e32dccb6a150eea9b703b7eb9db68921a2bf5c",
+          "image_scale_arcsec": 0.262,
+          "shape_yx": [
+            511,
+            511
+          ],
+          "valid_fraction": 1.0,
+          "sn_pixel": [
+            255.0,
+            254.9999999999518
+          ],
+          "science_hdu": 0,
+          "ivar_hdu": 1
+        },
+        {
+          "source": "NASA MAST / Pan-STARRS1",
+          "kind": "r stack",
+          "path": "2020oi/mast-pan-starrs-r.fits",
+          "url": "https://ps1images.stsci.edu/cgi-bin/fitscut.cgi?ra=185.728875&dec=15.823599999999999&size=1024&format=fits&red=%2Frings.v3.skycell%2F1635%2F091%2Frings.v3.skycell.1635.091.stk.r.unconv.fits",
+          "sha256": "d440b1be2c4d38a2450af6650c615b67eacf5647f44e7c3d149b19df8745ffd6",
+          "shape_yx": [
+            1024,
+            1024
+          ],
+          "valid_fraction": 1.0,
+          "sn_pixel": [
+            511.4910767301408,
+            511.7478953637401
+          ],
+          "science_hdu": 0,
+          "filter_header": ""
+        },
+        {
+          "source": "Legacy Surveys",
+          "kind": "wide",
+          "path": "2020oi/legacy-wide-r.fits",
+          "url": "https://www.legacysurvey.org/viewer/fits-cutout?ra=185.728875&dec=15.823599999999999&layer=ls-dr10&bands=r&size=511&pixscale=1.15",
+          "sha256": "2a8f23305a2ad2f7194b0651b352bee1ee29f9371c5c87adb7a7c13f47e9e497",
+          "image_scale_arcsec": 1.15,
+          "shape_yx": [
+            511,
+            511
+          ],
+          "valid_fraction": 1.0,
+          "sn_pixel": [
+            255.0,
+            254.99999999998903
+          ],
+          "science_hdu": 0,
+          "ivar_hdu": null
+        }
+      ],
+      "pairs": [],
+      "unavailable": {
+        "IRSA": "No verified exposure pair downloaded. The metadata service returned a database connection error on follow-up queries.",
+        "Fink": "No alert triplet with usable celestial WCS was verified."
+      },
+      "alert_stamps": []
+    },
+    {
+      "name": "2022hrs",
+      "host": "NGC 4647",
+      "ztf": "ZTF22aafoqrd",
+      "ra": "12h43m34.350s",
+      "dec": "+11d34m36.00s",
+      "date": "2022-04-16",
+      "wide_scale": 1.15,
+      "search_radius_arcsec": 170,
+      "feature": "Crowded NGC 4647 and M60 field",
+      "source": "https://www.wis-tns.org/object/2022hrs",
+      "ra_deg": 190.893125,
+      "dec_deg": 11.576666666666666,
+      "nearest_old_field_arcsec": 12810.041679000213,
+      "images": [
+        {
+          "source": "Legacy Surveys",
+          "kind": "detail",
+          "path": "2022hrs/legacy-detail-r.fits",
+          "url": "https://www.legacysurvey.org/viewer/fits-cutout?ra=190.893125&dec=11.576666666666666&layer=ls-dr10&bands=r&size=511&pixscale=0.262&invvar=1",
+          "sha256": "45014317f617f1fb87ff82d323bf365e7721ac3f23425c69f7388cabd921ac08",
+          "image_scale_arcsec": 0.262,
+          "shape_yx": [
+            511,
+            511
+          ],
+          "valid_fraction": 1.0,
+          "sn_pixel": [
+            255.0,
+            254.99999999942736
+          ],
+          "science_hdu": 0,
+          "ivar_hdu": 1
+        },
+        {
+          "source": "NASA MAST / Pan-STARRS1",
+          "kind": "r stack",
+          "path": "2022hrs/mast-pan-starrs-r.fits",
+          "url": "https://ps1images.stsci.edu/cgi-bin/fitscut.cgi?ra=190.893125&dec=11.576666666666666&size=1024&format=fits&red=%2Frings.v3.skycell%2F1548%2F083%2Frings.v3.skycell.1548.083.stk.r.unconv.fits",
+          "sha256": "af8350e2ff1e33737a7ae436844123844b57ee308273984e37b18acfb39677e2",
+          "shape_yx": [
+            1024,
+            1024
+          ],
+          "valid_fraction": 1.0,
+          "sn_pixel": [
+            511.8903676180835,
+            511.78383000527174
+          ],
+          "science_hdu": 0,
+          "filter_header": ""
+        },
+        {
+          "source": "Legacy Surveys",
+          "kind": "wide",
+          "path": "2022hrs/legacy-wide-r.fits",
+          "url": "https://www.legacysurvey.org/viewer/fits-cutout?ra=190.893125&dec=11.576666666666666&layer=ls-dr10&bands=r&size=511&pixscale=1.15",
+          "sha256": "69a83d8d0c42242fb9191cf67e5ebda82ba7b54c3be32afb23d286a2ef26a599",
+          "image_scale_arcsec": 1.15,
+          "shape_yx": [
+            511,
+            511
+          ],
+          "valid_fraction": 1.0,
+          "sn_pixel": [
+            255.0,
+            254.99999999986954
+          ],
+          "science_hdu": 0,
+          "ivar_hdu": null
+        }
+      ],
+      "pairs": [],
+      "unavailable": {
+        "IRSA": "No verified exposure pair downloaded. The metadata service returned a database connection error on follow-up queries.",
+        "Fink": "No alert triplet with usable celestial WCS was verified."
+      },
+      "alert_stamps": []
+    },
+    {
+      "name": "2024ggi",
+      "host": "NGC 3621",
+      "ztf": null,
+      "ra": "11h18m22.087s",
+      "dec": "-32d50m15.27s",
+      "date": "2024-04-11",
+      "wide_scale": 1.5,
+      "search_radius_arcsec": 190,
+      "feature": "Southern spiral with an offset supernova",
+      "source": "https://www.wis-tns.org/object/2024ggi",
+      "ra_deg": 169.59202916666666,
+      "dec_deg": -32.837575,
+      "nearest_old_field_arcsec": 23328.035944696403,
+      "images": [
+        {
+          "source": "Legacy Surveys",
+          "kind": "detail",
+          "path": "2024ggi/legacy-detail-r.fits",
+          "url": "https://www.legacysurvey.org/viewer/fits-cutout?ra=169.59202916666666&dec=-32.837575&layer=ls-dr10&bands=r&size=511&pixscale=0.262&invvar=1",
+          "sha256": "405efb491ce7cab2421807c94abc21350d733cf70d90ba6d14bc018dfa338c6f",
+          "image_scale_arcsec": 0.262,
+          "shape_yx": [
+            511,
+            511
+          ],
+          "valid_fraction": 0.997223509407516,
+          "sn_pixel": [
+            255.0000000040685,
+            254.99999999995018
+          ],
+          "science_hdu": 0,
+          "ivar_hdu": 1
+        },
+        {
+          "source": "Legacy Surveys",
+          "kind": "wide",
+          "path": "2024ggi/legacy-wide-r.fits",
+          "url": "https://www.legacysurvey.org/viewer/fits-cutout?ra=169.59202916666666&dec=-32.837575&layer=ls-dr10&bands=r&size=511&pixscale=1.5",
+          "sha256": "cdcd57b4e08deaf1e1df74351cbe332ceb06208968dd126b2f0434e33408cb34",
+          "image_scale_arcsec": 1.5,
+          "shape_yx": [
+            511,
+            511
+          ],
+          "valid_fraction": 1.0,
+          "sn_pixel": [
+            255.00000000071066,
+            254.9999999999913
+          ],
+          "science_hdu": 0,
+          "ivar_hdu": null
+        },
+        {
+          "source": "NASA GSFC SkyView",
+          "kind": "DSS2 Red",
+          "band": "photographic red",
+          "path": "2024ggi/skyview-dss2-red.fits",
+          "url": "https://skyview.gsfc.nasa.gov/cgi-bin/images?Survey=DSS2+Red&Position=169.59202916666666%2C-32.837575&Return=FITS&Pixels=600&Size=0.22&Coordinates=J2000&Projection=Tan",
+          "sha256": "45a0f60d2e74b586a8be681f4e621ae1d3a5c9da57a8ef08681714a2b9016a4a",
+          "shape_yx": [
+            600,
+            600
+          ],
+          "sn_pixel": [
+            299.4780584932516,
+            299.4904959662386
+          ],
+          "valid_fraction": 1.0,
+          "science_hdu": 0
+        }
+      ],
+      "pairs": [],
+      "unavailable": {},
+      "alert_stamps": []
+    }
+  ],
+  "verified_file_counts": {
+    "Legacy Surveys": 10,
+    "NASA MAST / Pan-STARRS1": 4,
+    "NASA GSFC SkyView": 2
+  },
+  "verified_file_count": 16,
+  "archived_pair_count": 0,
+  "method": "science FITS opened; source pixel finite and celestial WCS round-trip within 0.001 arcsec; r-band inverse variance checked when supplied"
+}
