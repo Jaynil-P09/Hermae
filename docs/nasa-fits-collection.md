@@ -15,6 +15,25 @@ Use the wide view for galaxies that extend beyond that field of view.
 The **View field preview** button opens the optical and ultraviolet
 contact sheet.
 
+Choose **NASA archive images** to see the six NASA-sourced FITS results
+together. The same view opens directly at
+`results/nasa-fields/archive-dashboard.html`. Each Pan-STARRS r stack has
+a trained host-ranking overlay, a segmentation map, and full tables.
+The GALEX near-UV and DSS2 Red views show survey measurements and mark
+the supernova sky position. Host ranking ran on the four r-band stacks.
+
+| NASA archive image | Result |
+| --- | --- |
+| SN 2023ixf, Pan-STARRS r | 237 detections, 56 ranked candidates |
+| SN 2021rhu, Pan-STARRS r | 89 detections, 18 ranked candidates |
+| SN 2020oi, Pan-STARRS r | 261 detections, 59 ranked candidates |
+| SN 2022hrs, Pan-STARRS r | 119 detections, 53 ranked candidates |
+| SN 2023ixf, GALEX near UV | The published SN position falls in M101's ultraviolet spiral structure |
+| SN 2024ggi, DSS2 Red | The published SN position is offset from the centre of NGC 3621 |
+
+All four ranked results require review. The individual results link back to
+the source FITS files and record the published host names in provenance.
+
 | Event and host | What the field shows | FITS products |
 | --- | --- | --- |
 | [SN 2023ixf in M101](https://www.wis-tns.org/object/2023ixf) | Spiral arms and an off-centre supernova | Wide and detailed Legacy r, Pan-STARRS r, GALEX near UV |

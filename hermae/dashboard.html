@@ -34,6 +34,14 @@
   .collection-menu { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 0 0; }
   .collection-menu .tabs { padding: 0; }
   .collection-menu .control { margin-left: auto; font-size: 12px; }
+  .collection-results { margin: 17px 0 0; }
+  .collection-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 9px; margin-top: 8px; }
+  .result-card { display: flex; min-width: 0; align-items: center; text-align: left; gap: 10px; padding: 9px;
+    min-height: 76px; border: 1px solid var(--edge); border-radius: 10px; color: var(--ink); background: #131b2c; }
+  .result-card:hover, .result-card[aria-pressed="true"] { border-color: #a48ddc; background: #24223a; }
+  .result-card img { width: 69px; height: 54px; object-fit: cover; border-radius: 5px; }
+  .result-card strong, .result-card small { display: block; line-height: 1.35; }
+  .result-card small { color: var(--muted); margin-top: 4px; }
   .control, input, select { border: 1px solid #38465d; background: #151e30; color: var(--ink);
     border-radius: 8px; padding: 7px 12px; min-height: 36px; text-decoration: none; }
   .control:disabled { opacity: .45; cursor: default; }
@@ -132,6 +140,7 @@
     .workspace { grid-template-columns: 1fr; }
     .intro { padding-top: 25px; }
     .stage { min-height: 190px; }
+    .collection-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   }
   @media (max-width: 540px) {
     .nav { order: 3; width: 100%; gap: 16px; }
@@ -140,6 +149,7 @@
     .viewer-head { flex-wrap: wrap; }
     .tile { flex-basis: 126px; }
     .toolbar > div { margin-left: 0; }
+    .collection-grid { grid-template-columns: 1fr; }
   }
   @media (prefers-reduced-motion: reduce) { :root { scroll-behavior: auto; } }
 </style>
@@ -159,6 +169,10 @@
     <div class="tabs" id="collections" role="group" aria-label="Select a collection"></div>
     <button type="button" class="control" id="collection-preview" hidden>View field preview</button>
   </nav>
+  <section class="collection-results" id="collection-results" aria-labelledby="collection-results-title" hidden>
+    <h2 id="collection-results-title">Image results</h2>
+    <div class="collection-grid" id="collection-grid"></div>
+  </section>
   <section class="intro" aria-labelledby="page-title">
     <div class="intro-head">
       <div><p class="eyebrow" id="workflow"></p><h1 id="page-title"></h1><p class="run-name" id="run-name"></p></div>
@@ -232,7 +246,7 @@
     host_proposed: "Host proposed", multiple_plausible_hosts: "Multiple plausible hosts",
     host_requires_review: "Host needs review", no_plausible_host_detected: "No host candidate",
     no_usable_coverage: "No usable coverage", transients_detected: "Transient candidates found",
-    no_transient_detected: "No transient candidate"
+    no_transient_detected: "No transient candidate", survey_context: "Survey context"
   };
   const keys = {ra_deg:"RA (°)",dec_deg:"Dec (°)",separation_arcsec:"Separation (″)",x_px:"x (px)",y_px:"y (px)",
     peak_sigma:"Peak (σ)",ranker_score:"Ranker score",classifier_score:"Classifier score",source_id:"Source ID",
@@ -280,9 +294,14 @@
   }
   function finding(view) {
     const s = run.summary;
+    if (s.mode === "survey_image") {
+      return [s.finding_title,s.finding,[["Survey",s.input.source],["Passband",s.input.band],
+        ["Published host",s.reported_host],["Finite pixels",coverage(s.input.valid_fraction)]]];
+    }
     if (view.summary) {
       const result = hostFinding(view.summary);
       if (view.transient) result[2].unshift(["Residual peak",sigma(view.transient.peak_sigma)]);
+      if (s.survey_origin?.reported_host) result[2].push(["Published host name",s.survey_origin.reported_host]);
       return result;
     }
     if (view.title === "Segmentation map") return ["Source footprints",
@@ -395,13 +414,16 @@
   }
   function selectRun(index) {
     run = runs[index];
-    const s = run.summary, pair = s.mode === "pair_search";
-    text("workflow",pair ? "Image-pair search" : "Known-position search");
-    text("page-title",pair ? "Blind transient search" : "Host galaxy search");
+    const s = run.summary, pair = s.mode === "pair_search", survey = s.mode === "survey_image";
+    text("workflow",survey ? "Archive FITS" : pair ? "Image-pair search" : "Known-position search");
+    text("page-title",survey ? s.view_title : pair ? "Blind transient search" : "Host galaxy search");
     text("run-name",run.comparison?.event_id ? run.comparison.event_id + " · " + run.name : run.name);
     text("run-status",status(s.status));
-    el("run-status").className = "status " + (needsReview(s.status) ? "review" : s.status.startsWith("no_") ? "neutral" : "");
-    definitions(el("metrics"),pair
+    el("run-status").className = "status " + (needsReview(s.status) ? "review" : survey || s.status.startsWith("no_") ? "neutral" : "");
+    definitions(el("metrics"),survey
+      ? [["Passband",s.input.band],["Image dimensions",s.input.shape_yx.slice().reverse().join(" × ")],
+        ["Finite pixels",coverage(s.input.valid_fraction)],["Target RA",fmt(s.sn.ra_deg,5)+"°"]]
+      : pair
       ? [["Residual detections",fmt(s.detections,0)],["Retained candidates",fmt(s.candidates,0)],
         ["Usable overlap",coverage(s.overlap_fraction)],["Detection threshold",sigma(s.transient_sigma)]]
       : [["Full-frame detections",fmt(s.detections,0)],["Ranked candidates",fmt(s.candidates,0)],
@@ -427,18 +449,43 @@
     }));
     selectLayer(0);
   }
+  function showCollectionResults(picker) {
+    const selectedRuns = currentCollection.runs.map(index => runs[index]);
+    const visible = selectedRuns.some(item => item.summary.mode === "survey_image");
+    el("collection-results").hidden = !visible;
+    el("collection-grid").replaceChildren(...(visible ? selectedRuns : []).map((item,index) => {
+      const s = item.summary, survey = s.mode === "survey_image";
+      const description = survey ? "Survey context · " + s.input.band
+        : fmt(s.detections,0) + " detections · " + fmt(s.candidates,0) + " host candidates";
+      const button = node("button",undefined,"result-card"), info = node("span");
+      button.type = "button";
+      if(item.layers[0].image) {
+        const thumbnail = node("img"); thumbnail.src = item.layers[0].image; thumbnail.alt = ""; thumbnail.loading = "lazy";
+        button.append(thumbnail);
+      }
+      info.append(node("strong",item.name),node("small",description));
+      button.append(info);
+      button.onclick = () => {
+        picker.selectedIndex = index; picker.onchange();
+        el("overlays").scrollIntoView();
+      };
+      return button;
+    }));
+  }
   function selectCollection(index) {
     currentCollection = collections[index];
     press("collections",index);
     el("collection-preview").hidden = !currentCollection.preview;
     const picker = el("run-select");
     picker.replaceChildren(...currentCollection.runs.map(runIndex => node("option",runs[runIndex].name)));
+    showCollectionResults(picker);
     picker.selectedIndex = lastRun.get(index) ?? 0;
     picker.onchange = () => {
       lastRun.set(index,picker.selectedIndex);
+      press("collection-grid",picker.selectedIndex);
       selectRun(currentCollection.runs[picker.selectedIndex]);
     };
-    selectRun(currentCollection.runs[picker.selectedIndex]);
+    picker.onchange();
   }
   function showImage(title, url) {
     text("zoom-title",title);

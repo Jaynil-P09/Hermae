@@ -49,7 +49,25 @@ def residual_boxes(colours, candidates, stride):
         colours[y0:y1 + 1, [x0, x1]] = colour
 
 
-def raster(values, kind="science", candidates=()):
+def mark_position(colours, pixel, stride):
+    x, y = (round(float(value) / stride) for value in pixel)
+    height, width = colours.shape[:2]
+    if not (0 <= x < width and 0 <= y < height):
+        return
+    length = max(5, min(height, width) // 42)
+    background = (0.04, 0.07, 0.12, 1.)
+    centre = (.52, .98, .89, 1.)
+    for dx, dy in ((1, 0), (0, 1)):
+        along = np.arange(-length, length + 1)
+        for offset in (-1, 0, 1):
+            xs, ys = x + dx * along + dy * offset, y + dy * along + dx * offset
+            valid = (0 <= xs) & (xs < width) & (0 <= ys) & (ys < height)
+            colours[ys[valid], xs[valid]] = background
+    colours[y, max(0, x-length):x+length+1] = centre
+    colours[max(0, y-length):y+length+1, x] = centre
+
+
+def raster(values, kind="science", candidates=(), target=None):
     # Display samples in their original orientation. Full-resolution measurements stay in FITS.
     stride = max(1, int(np.ceil(max(values.shape) / 1300)))
     values = values[::stride, ::stride]
@@ -70,11 +88,13 @@ def raster(values, kind="science", candidates=()):
             low, high = np.percentile(finite, [6, 99.75])
             span = max(high - low, np.finfo(float).eps)
             scaled = np.arcsinh(np.clip((values - low) / span, 0, 1) * 10) / np.arcsinh(10)
-            palette = colormaps["gray"]
+            palette = colormaps["magma" if kind == "ultraviolet" else "gray"]
         colours = palette(scaled)
         colours[~np.isfinite(values)] = (.07, .09, .15, 1)
     if candidates:
         residual_boxes(colours, candidates, stride)
+    if target is not None:
+        mark_position(colours, target, stride)
     stream = BytesIO()
     imsave(stream, colours, format="png", origin="lower")
     return png_url(stream.getvalue())
@@ -189,28 +209,65 @@ def pair(folder, run):
     return layers, tables, None
 
 
+def survey(run):
+    entry = run["input"]
+    path = Path(entry["path"])
+    preview = None
+    if path.is_file() and digest(path) == entry["sha256"]:
+        values = fits.getdata(path, entry.get("science_hdu", 0))
+        if values.ndim == 2:
+            kind = "ultraviolet" if entry["band"] == "near ultraviolet" else "science"
+            preview = raster(values, kind, target=run["sn"]["pixel"])
+    layers = [layer(run["view_title"], "Survey image", preview,
+                    "The cross marks the published supernova coordinates on the archive pixels.",
+                    legend=(("green", "Published supernova position"),))]
+    height, width = entry["shape_yx"]
+    x, y = run["sn"]["pixel"]
+    rows = [("RA", run["sn"]["ra_deg"], "deg"), ("Declination", run["sn"]["dec_deg"], "deg"),
+            ("Image width", width, "px"), ("Image height", height, "px"),
+            ("Target x", x, "px"), ("Target y", y, "px"),
+            ("Finite pixels", 100 * entry["valid_fraction"], "%"),
+            ("Passband", entry["band"], "")]
+    table_data = dict(title="Survey measurements", filename="survey-measurements.csv", rows=[
+        dict(metric=name, value=str(value), unit=unit) for name, value, unit in rows])
+    return layers, [table_data], None
+
+
+def file_link(path, output_parent):
+    path = path.resolve()
+    try:
+        relative = Path(os.path.relpath(path, output_parent)).as_posix()
+        return dict(name=path.name, url=quote(relative))
+    except ValueError:  # Windows drives can differ.
+        return dict(name=path.name, url=path.as_uri())
+
+
 def artifact_links(folder, names, output_parent):
     result = []
     for name in names:
         path = folder / name
         if path.parent != folder or not path.is_file():
             continue
-        try:
-            relative = Path(os.path.relpath(path, output_parent)).as_posix()
-        except ValueError:  # Windows drives can differ.
-            relative = path.as_uri()
-        result.append(dict(name=name, url=quote(relative) if not relative.startswith("file:") else relative))
+        result.append(file_link(path, output_parent))
     return result
 
 
 def run_payload(folder, output_parent):
     summary = json_file(folder / "run.json")
     mode = summary["mode"]
-    if mode not in {"known_position", "pair_search"}:
-        raise ValueError("Select the top-level directory for a known-position or pair-search run.")
-    layers, tables, comparison = (pair if mode == "pair_search" else known)(folder, summary)
-    return dict(name=folder.name, summary=summary, layers=layers, tables=tables, comparison=comparison,
-                artifacts=artifact_links(folder, summary["files"], output_parent))
+    if mode == "survey_image":
+        layers, tables, comparison = survey(summary)
+    elif mode in {"known_position", "pair_search"}:
+        layers, tables, comparison = (pair if mode == "pair_search" else known)(folder, summary)
+    else:
+        raise ValueError("Select a top-level known-position, pair-search or survey-image result directory.")
+    artifacts = artifact_links(folder, summary["files"], output_parent)
+    if summary.get("survey_origin") or mode == "survey_image":
+        source = Path(summary["input"]["path"])
+        if source.is_file() and digest(source) == summary["input"]["sha256"]:
+            artifacts.append(file_link(source, output_parent))
+    return dict(name=summary.get("display_name", folder.name), summary=summary, layers=layers, tables=tables,
+                comparison=comparison, artifacts=artifacts)
 
 
 def dashboard(folder, out=None, *, collections=(), previews=()):
@@ -230,7 +287,7 @@ def dashboard(folder, out=None, *, collections=(), previews=()):
     title = folders[0].name if len(folders) == 1 else "Run gallery"
     runs = [run_payload(path, out.resolve().parent) for path in folders]
     for folder, run in zip(folders, runs):
-        if len(folders) > 1:
+        if len(folders) > 1 and not run["summary"].get("display_name"):
             run["name"] = f"{folder.parent.name}/{folder.name}"
     images = {}
     for name, path in previews:
