@@ -101,6 +101,9 @@ def aligned_pair(reference, science, rhdu, shdu, ref_fwhm, sci_fwhm, center, siz
     data, sw, sb, st, sh = read_uv(science, shdu)
     if rb != sb:
         raise ValueError(f"Use identical UV filters for both epochs ({rb} and {sb}).")
+    for header in (rh, sh):
+        if any("Map generated at:" in line for line in header.get("HISTORY", [])):
+            raise ValueError("Use original dated exposures for localization. SkyView mosaics supply background context.")
     if rt is None or st is None or not (np.isfinite(rt) and np.isfinite(st) and rt < st):
         raise ValueError("Both FITS images need observation dates in increasing order.")
     for label, header in (("reference", rh), ("science", sh)):
