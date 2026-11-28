@@ -76,10 +76,22 @@ $pair = (Get-Content results/ztf-development/manifest.json -Raw | ConvertFrom-Js
 .venv/Scripts/hermae.exe dashboard --run results/ZTF18abvtiko
 ```
 
-Open the generated `dashboard.html` directly in a browser. It contains the
-original field or aligned image triplet, sortable detection tables, and
-reference-frame host results for each surviving transient. `difference.fits`
-contains the signed residual, coverage mask and variance estimate. Add
+Open the generated `dashboard.html` directly in a browser. The gallery includes
+the detection and association overlays, individual science previews when
+the original FITS files are available, the signed residual, coverage and
+variance maps, and the host overlay for each surviving transient. Each
+view explains its markings and shows the run's finding alongside the
+corresponding sortable, filterable measurements. PNG and CSV download
+controls work offline. The provenance section links to original run
+files in their saved folders.
+
+Repeat `--run` to collect several saved runs in one dashboard.
+
+```powershell
+.venv/Scripts/hermae.exe dashboard --run results/examples/known --run results/examples/pair --out results/dashboard.html
+```
+
+`difference.fits` contains the signed residual, coverage mask and variance estimate. Add
 `--transient-weights results/phase4/transient.pt` to try the experimental CNN
 filter. The difference detections are transient candidates pending independent
 classification.

@@ -1,110 +1,445 @@
 <!doctype html>
 <html lang="en">
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hermae | @@TITLE@@</title>
 <style>
-  :root { color-scheme:dark; font:16px/1.5 system-ui,sans-serif; background:#0b1420; color:#eaf3fb; }
-  body { max-width:1160px; margin:0 auto; padding:clamp(14px,4vw,36px); }
-  header { display:flex; flex-wrap:wrap; align-items:end; justify-content:space-between; gap:12px; margin-bottom:22px; }
-  h1,h2,p,figure { margin:0; } h1 { font-size:clamp(24px,5vw,36px); }
-  h2 { font-size:20px; margin-bottom:12px; }
-  #status,#host-status { color:#c4ee9b; font-weight:650; }
-  #counts,figcaption,label { color:#c2d2de; }
-  section,figure { border:1px solid #354859; background:#111d2a; border-radius:12px; overflow:hidden; margin-bottom:16px; }
-  section { padding:16px; } figure img { width:100%; display:block; } figcaption { padding:10px 14px; }
-  .scroll { overflow:auto; max-height:430px; }
-  table { width:100%; min-width:580px; border-collapse:collapse; font:14px/1.45 ui-monospace,monospace; }
-  th,td { padding:8px 12px; text-align:left; border-bottom:1px solid #354859; white-space:nowrap; }
-  th { position:sticky; top:0; background:#182939; }
-  tr:hover td { background:#182939; }
-  button,select { background:#172a3c; color:#eaf3fb; border:1px solid #516777; border-radius:5px;
-    padding:6px 10px; font:inherit; }
-  th button { background:none; border:none; padding:0; text-align:left; cursor:pointer; }
-  button:focus-visible,select:focus-visible { outline:2px solid #a6dff5; outline-offset:2px; }
-  .toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:10px; }
+  :root {
+    color-scheme: dark;
+    --night: #080c15; --panel: #101724; --edge: #263247; --ink: #f1f3fc;
+    --muted: #a7b1c6; --lilac: #c9b8ff; --cyan: #7ee7ef; --green: #9de7c4; --amber: #ffcf95;
+    font: 15px/1.55 "Segoe UI", system-ui, sans-serif; color: var(--ink);
+    background: radial-gradient(ellipse at 68% -18%, #292451 0, transparent 45%), var(--night);
+    scroll-behavior: smooth;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; }
+  h1, h2, h3, p, figure, dl, dd { margin: 0; }
+  a { color: inherit; }
+  button, input, select { font: inherit; }
+  button, select, a.control { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--cyan); outline-offset: 4px; }
+  [hidden] { display: none !important; }
+  .shell { width: min(100% - 72px, 1440px); margin: 0 auto; }
+  .top { border-bottom: 1px solid #9daed326; background: #0c101bea; }
+  .top .shell { display: flex; align-items: center; justify-content: space-between; min-height: 68px; gap: 24px; }
+  .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 720; letter-spacing: .055em; text-decoration: none; }
+  .mark { width: 32px; height: 32px; display: grid; place-items: center; background: #251e3b; border: 1px solid #675b8a;
+    color: var(--lilac); border-radius: 9px; font-size: 23px; line-height: 1; }
+  .nav { display: flex; gap: 25px; color: var(--muted); font-size: 13px; }
+  .nav a { text-decoration: none; }
+  .nav a:hover { color: var(--ink); }
+  .picker { display: flex; gap: 9px; align-items: center; color: var(--muted); font-size: 13px; }
+  .control, input, select { border: 1px solid #38465d; background: #151e30; color: var(--ink);
+    border-radius: 8px; padding: 7px 12px; min-height: 36px; text-decoration: none; }
+  .control:disabled { opacity: .45; cursor: default; }
+  select { max-width: min(43vw, 290px); }
+  .control:hover:not(:disabled) { background: #202b42; border-color: #6b628d; }
+  .intro { padding: 34px 0 18px; }
+  .intro-head, .section-head, .viewer-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; }
+  .eyebrow, .category { text-transform: uppercase; letter-spacing: .135em; font-weight: 700; font-size: 11px; color: var(--lilac); }
+  h1 { font-size: clamp(32px, 4.25vw, 61px); letter-spacing: -.055em; line-height: 1.08; margin-top: 6px; }
+  .run-name { color: var(--muted); margin-top: 8px; overflow-wrap: anywhere; }
+  .status { display: inline-flex; align-items: center; gap: 8px; flex: none; border-radius: 40px; padding: 7px 13px;
+    font-size: 12px; font-weight: 650; color: var(--green); background: #15342c; border: 1px solid #306751; }
+  .status::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .status.review { color: var(--amber); background: #332920; border-color: #6b4b30; }
+  .status.neutral { color: #c1cadd; background: #202a3d; border-color: #445375; }
+  .metrics { margin-top: 20px; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; }
+  .metric { min-width: 0; border: 1px solid var(--edge); border-radius: 12px; background: #131a2bcf; padding: 10px 15px; }
+  .metric dt { font-size: 12px; color: var(--muted); }
+  .metric dd { font-size: clamp(19px, 2.4vw, 27px); font-weight: 650; letter-spacing: -.035em; line-height: 1.25;
+    margin-top: 3px; overflow-wrap: anywhere; }
+  main { padding-bottom: 44px; }
+  section[id] { scroll-margin-top: 16px; }
+  .section-head { margin: 12px 0 10px; align-items: center; }
+  h2 { font-size: 22px; letter-spacing: -.035em; }
+  h3 { font-size: 22px; line-height: 1.25; letter-spacing: -.025em; }
+  .subtle { color: var(--muted); font-size: 13px; }
+  .workspace { display: grid; grid-template-columns: minmax(0,2.55fr) minmax(260px,1fr); gap: 15px; align-items: start; }
+  .panel { min-width: 0; border: 1px solid var(--edge); border-radius: 14px; background: var(--panel); overflow: hidden; }
+  .viewer-head { padding: 12px 16px; align-items: center; }
+  .viewer-title { font-size: 17px; font-weight: 680; line-height: 1.3; }
+  .viewer-actions { display: flex; gap: 7px; }
+  .viewer-actions .control { font-size: 12px; min-height: 30px; padding: 5px 10px; white-space: nowrap; }
+  .stage { min-height: 280px; display: grid; place-items: center; background: #080c15; }
+  .stage img { display: block; width: 100%; height: auto; max-height: 470px; object-fit: contain; }
+  .stage figcaption { padding: 40px 18px; text-align: center; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px 16px; padding: 10px 15px; color: var(--muted); font-size: 12px; }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .dot { width: 9px; height: 9px; border-radius: 3px; background: currentColor; }
+  .dot.cyan { color: #57c7db; } .dot.white { color: #fff; } .dot.lime { color: #d0ff82; }
+  .dot.amber { color: #ffbc68; } .dot.green { color: #6be2a9; } .dot.blue { color: #5c9ce2; }
+  .dot.warm { color: #e98880; } .dot.muted { color: #68718d; }
+  .insight { padding: 17px 18px 18px; border-top-color: #7869a2;
+    background: linear-gradient(150deg,#22223c 0, #151c2d 65%, #131a29 100%); }
+  .insight h3 { margin-top: 5px; }
+  .insight p { color: #cbd3e5; font-size: 14px; margin-top: 10px; }
+  .insight .category { color: var(--lilac); font-size: 11px; margin-top: 0; }
+  .facts { margin-top: 14px; border-top: 1px solid #56648952; padding-top: 4px; }
+  .fact { display: flex; justify-content: space-between; gap: 9px; padding: 8px 0; border-bottom: 1px solid #56648935; font-size: 13px; }
+  .fact dt { color: var(--muted); } .fact dd { text-align: right; }
+  .insight .reading { margin-top: 15px; padding-top: 12px; border-top: 1px solid #56648952; }
+  .insight .reading strong { display: block; color: var(--ink); font-size: 12px; margin-bottom: 4px; }
+  .ref-match { margin-top: 12px; padding: 9px 11px; font-size: 13px; color: #eddef1;
+    border-left: 2px solid var(--lilac); background: #30254360; }
+  .gallery { display: flex; gap: 10px; padding: 10px 2px 13px; overflow-x: auto; }
+  .tile { flex: 0 0 144px; background: #141d2e; padding: 0; color: var(--ink); text-align: left;
+    border: 1px solid var(--edge); border-radius: 10px; overflow: hidden; }
+  .tile:hover, .tile[aria-pressed="true"] { border-color: #a48ddc; }
+  .tile[aria-pressed="true"] { background: #25223d; box-shadow: 0 0 0 1px #a48ddc; }
+  .thumbnail { display: block; width: 100%; height: 62px; object-fit: cover; object-position: center 48%;
+    background: #080c15; border-bottom: 1px solid var(--edge); }
+  .tile-content { padding: 7px 9px; display: grid; gap: 1px; }
+  .tile-label { font-size: 12px; font-weight: 650; line-height: 1.25; }
+  .tile-type { color: var(--muted); font-size: 10px; }
+  .data-section { margin-top: 13px; }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 14px 0; }
+  .tab { padding: 6px 10px; min-height: 33px; border: 1px solid #38465d; background: #151e30; border-radius: 7px;
+    color: var(--muted); font-size: 13px; }
+  .tab[aria-pressed="true"] { border-color: #8d77c4; color: var(--ink); background: #2c2244; }
+  .toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 12px 14px; }
+  .toolbar input { width: min(100%, 310px); }
+  .toolbar > div { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+  .scroll { overflow: auto; max-height: 440px; border-top: 1px solid var(--edge); }
+  table { width: 100%; border-collapse: collapse; font: 12px/1.5 ui-monospace, "Cascadia Mono", Consolas, monospace; }
+  th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid #263247b0; white-space: nowrap; }
+  th { position: sticky; top: 0; background: #182339; color: var(--ink); }
+  td { color: #cbd6ea; }
+  tr:nth-child(even) td { background: #131c2b; }
+  tr:hover td { background: #232c46; }
+  th button { background: transparent; padding: 0; color: inherit; border: 0; }
+  th[aria-sort="ascending"] button::after { content: " ↑"; color: var(--lilac); }
+  th[aria-sort="descending"] button::after { content: " ↓"; color: var(--lilac); }
+  .empty { padding: 20px 15px; }
+  details { padding: 12px 15px; }
+  details summary { cursor: pointer; font-weight: 650; }
+  .files { display: flex; padding: 0 15px 14px; gap: 8px; flex-wrap: wrap; }
+  .files .control { font-size: 12px; min-height: 31px; padding: 5px 9px; }
+  pre { overflow: auto; max-height: 360px; font-size: 12px; color: var(--muted); }
+  dialog { width: min(96vw, 1440px); padding: 13px; color: var(--ink); border: 1px solid #69718e;
+    border-radius: 12px; background: #101724; }
+  dialog::backdrop { background: #050815e8; }
+  dialog header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
+  dialog img { display: block; max-width: 100%; width: auto; margin: auto; max-height: 82vh; object-fit: contain; }
+  @media (max-width: 920px) {
+    .shell { width: min(100% - 32px,1440px); }
+    .top .shell { flex-wrap: wrap; gap: 8px 20px; padding: 12px 0; }
+    .workspace { grid-template-columns: 1fr; }
+    .intro { padding-top: 25px; }
+    .stage { min-height: 190px; }
+  }
+  @media (max-width: 540px) {
+    .nav { order: 3; width: 100%; gap: 16px; }
+    .intro-head { align-items: start; flex-direction: column; gap: 9px; }
+    .metrics { grid-template-columns: repeat(2,minmax(0,1fr)); margin-top: 13px; }
+    .viewer-head { flex-wrap: wrap; }
+    .tile { flex-basis: 126px; }
+    .toolbar > div { margin-left: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) { :root { scroll-behavior: auto; } }
 </style>
-<header>
-  <div><h1>@@TITLE@@</h1><p id="workflow"></p></div>
-  <div><p id="status"></p><p id="counts"></p></div>
+</head>
+<body>
+<header class="top" id="top">
+  <div class="shell">
+    <a href="#top" class="brand"><span class="mark" aria-hidden="true">✧</span> Hermae</a>
+    <nav class="nav" aria-label="Dashboard sections">
+      <a href="#overlays">Overlays</a><a href="#data">Data</a><a href="#provenance">Provenance</a>
+    </nav>
+    <div class="picker"><label for="run-select">Run</label><select id="run-select"></select></div>
+  </div>
 </header>
-<main>
-  <figure id="overview"></figure>
-  <section><div class="toolbar"><label for="tables">Table</label><select id="tables"></select></div>
-    <div id="rows" class="scroll"></div></section>
-  <section id="host" hidden>
-    <div class="toolbar"><label for="transient">Host result for transient</label><select id="transient"></select>
-      <p id="host-status"></p></div>
-    <figure id="host-image"></figure><div id="host-rows" class="scroll"></div>
+<main class="shell">
+  <section class="intro" aria-labelledby="page-title">
+    <div class="intro-head">
+      <div><p class="eyebrow" id="workflow"></p><h1 id="page-title"></h1><p class="run-name" id="run-name"></p></div>
+      <p class="status" id="run-status"></p>
+    </div>
+    <dl class="metrics" id="metrics"></dl>
+  </section>
+  <section id="overlays" aria-labelledby="overlays-title">
+    <div class="section-head"><h2 id="overlays-title">Image overlays</h2><p class="subtle" id="layer-count"></p></div>
+    <div class="gallery" id="gallery" role="group" aria-label="Select an image overlay"></div>
+    <div class="workspace">
+      <div class="panel">
+        <div class="viewer-head">
+          <div><p class="category" id="layer-group"></p><p class="viewer-title" id="layer-title"></p></div>
+          <div class="viewer-actions" id="viewer-actions"><button class="control" id="expand" type="button">Enlarge</button>
+            <a class="control" id="save-image" download>Save PNG</a></div>
+        </div>
+        <figure class="stage" id="stage"></figure>
+        <div class="legend" id="legend" aria-label="Overlay legend"></div>
+      </div>
+      <aside class="panel insight" aria-labelledby="finding-title" aria-live="polite">
+        <p class="category">What this shows</p><h3 id="finding-title"></h3>
+        <p id="finding-body"></p><dl class="facts" id="finding-facts"></dl>
+        <div class="ref-match" id="reference-match" hidden></div>
+        <p class="reading"><strong>How to read the image</strong><span id="reading"></span></p>
+      </aside>
+    </div>
+  </section>
+  <section id="data" class="data-section" aria-labelledby="data-title">
+    <div class="section-head"><h2 id="data-title">Data explorer</h2></div>
+    <div class="panel">
+      <div class="tabs" id="tables" role="group" aria-label="Select a data table"></div>
+      <div class="toolbar"><label for="row-filter">Filter rows</label><input id="row-filter" type="search" placeholder="Source ID, coordinates, status…">
+        <div><span class="subtle" id="row-count" role="status"></span><button class="control" id="save-csv" type="button">Save CSV</button></div>
+      </div>
+      <div id="rows" class="scroll" tabindex="0" aria-label="Data table"></div>
+    </div>
+  </section>
+  <section id="provenance" class="data-section" aria-labelledby="provenance-title">
+    <div class="section-head"><h2 id="provenance-title">Run provenance</h2></div>
+    <div class="panel"><details><summary>Configuration, FITS inputs and model identifiers</summary><pre id="config"></pre></details>
+      <details id="comparison" hidden><summary>Published host comparison</summary><pre id="comparison-json"></pre></details>
+      <details id="layer-provenance" hidden><summary>Selected host overlay records</summary><pre id="layer-config"></pre></details>
+      <div class="files" id="files" aria-label="Original run files"></div>
+    </div>
   </section>
 </main>
-<script type="application/json" id="run">@@DATA@@</script>
+<dialog id="viewer-dialog" aria-labelledby="zoom-title">
+  <header><strong id="zoom-title"></strong><form method="dialog"><button class="control">Close</button></form></header>
+  <img id="zoomed" alt="">
+</dialog>
+<script type="application/json" id="run-data">@@DATA@@</script>
 <script>
-  const data = JSON.parse(document.querySelector("#run").textContent);
+  const {runs} = JSON.parse(document.querySelector("#run-data").textContent);
   const el = id => document.getElementById(id);
-  const node = (tag,text) => { const n = document.createElement(tag); n.textContent = text; return n; };
-  const state = value => value.replaceAll("_"," ").replace(/^./, first => first.toUpperCase());
-  const names = {"ra_deg":"RA (°)", "dec_deg":"Dec (°)", "separation_arcsec":"Separation (″)",
-    "x_px":"x (px)", "y_px":"y (px)", "peak_sigma":"Peak (σ)", "ranker_score":"Ranker score",
-    "classifier_score":"Classifier score", "size_scaled_offset":"Size-scaled offset"};
-  const pair = data.mode === "pair_search";
-  el("workflow").textContent = pair ? "Image-pair search" : "Known-position host search";
-  el("status").textContent = state(data.status);
-  el("counts").textContent = pair
-    ? `${data.counts.detections} residuals · ${data.counts.candidates} surviving`
-    : `${data.counts.detections} detections · ${data.counts.candidates} host candidates`;
-  function overlay(target, url, alt) {
-    target.replaceChildren();
-    if (url) { const img = document.createElement("img"); img.src = url; img.alt = alt; target.append(img); }
-    else { target.append(node("figcaption","No image available for this run.")); }
+  const node = (tag, text, className) => {
+    const element = document.createElement(tag);
+    if (text !== undefined) element.textContent = text;
+    if (className) element.className = className;
+    return element;
+  };
+  const text = (id, value) => { el(id).textContent = value; };
+  const human = value => String(value ?? "").replaceAll("_"," ").replace(/^./, first => first.toUpperCase());
+  const numeric = value => value != null && value !== "" && Number.isFinite(Number(value));
+  const fmt = (value, decimals=2) => numeric(value)
+    ? Number(value).toLocaleString(undefined,{maximumFractionDigits:decimals}) : "—";
+  const coverage = value => numeric(value) ? fmt(value*100,1) + "%" : "—";
+  const arcsec = value => numeric(value) ? fmt(value,2) + "″" : "—";
+  const sigma = value => numeric(value) ? fmt(value,2) + " σ" : "—";
+  const statuses = {
+    host_proposed: "Host proposed", multiple_plausible_hosts: "Multiple plausible hosts",
+    host_requires_review: "Host needs review", no_plausible_host_detected: "No host candidate",
+    no_usable_coverage: "No usable coverage", transients_detected: "Transient candidates found",
+    no_transient_detected: "No transient candidate"
+  };
+  const keys = {ra_deg:"RA (°)",dec_deg:"Dec (°)",separation_arcsec:"Separation (″)",x_px:"x (px)",y_px:"y (px)",
+    peak_sigma:"Peak (σ)",ranker_score:"Ranker score",classifier_score:"Classifier score",source_id:"Source ID",
+    transient_id:"Transient ID",size_scaled_offset:"Size-scaled offset",footprint_pixels:"Footprint (px)",
+    separation_from_v2_arcsec:"Offset from v2 (″)",
+    major_sigma_px:"Major σ (px)",minor_sigma_px:"Minor σ (px)"};
+  let run, currentLayer, currentTable, sortKey="", direction=1;
+
+  function definitions(target, pairs, className) {
+    target.replaceChildren(...pairs.map(([title,value]) => {
+      const item = node("div",undefined,className);
+      item.append(node("dt",title),node("dd",value));
+      return item;
+    }));
+    target.hidden = !pairs.length;
   }
-  function numeric(value) { return value.trim() && Number.isFinite(Number(value)); }
-  function table(target, rows, sorted="", direction=1) {
+  const status = value => statuses[value] || human(value);
+  const needsReview = value => ["multiple_plausible_hosts", "host_requires_review"].includes(value);
+
+  function hostFinding(s) {
+    const pick = s.provisional_host;
+    if (!pick) return [status(s.status), s.status === "no_usable_coverage"
+      ? "The target is outside usable coverage. This run has no host ranking."
+      : "The search found no eligible candidate for a host association.", []];
+    const body = needsReview(s.status)
+      ? "Source " + pick.source_id + " ranks first. The review policy asks you to inspect the candidates before assigning a host."
+      : "Source " + pick.source_id + " ranks first. The host association is provisional.";
+    const facts = [["Candidate count",fmt(s.candidates,0)],["Top source", "#" + pick.source_id],
+      ["Offset from target",arcsec(pick.separation_arcsec)],["Position",fmt(pick.ra_deg,5)+"°, "+fmt(pick.dec_deg,5)+"°"]];
+    if (pick.ranker_score != null) facts.push(["Ranker score",fmt(pick.ranker_score,3)]);
+    if (s.ranker?.score_gap != null) facts.push(["Score gap",fmt(s.ranker.score_gap,3)]);
+    return [status(s.status),body,facts];
+  }
+  function pairFinding(s) {
+    if (s.status === "no_usable_coverage") return [status(s.status),
+      "The exposures lack usable overlap, so no subtraction-based conclusion can be drawn.", []];
+    let body = "No positive residual met the detection threshold.";
+    if (s.candidates) body = s.candidates + " of " + s.detections +
+      " detected residuals retained. Open a host overlay to inspect its proposed association.";
+    else if (s.detections) body = "The filter retained none of the detected residuals.";
+    const facts = [["Usable overlap",coverage(s.overlap_fraction)],["Detection threshold",sigma(s.transient_sigma)]];
+    if (s.classifier) facts.push(["CNN threshold",fmt(s.classifier.threshold,3)]);
+    return [status(s.status),body,facts];
+  }
+  function finding(view) {
+    const s = run.summary;
+    if (view.summary) {
+      const result = hostFinding(view.summary);
+      if (view.transient) result[2].unshift(["Residual peak",sigma(view.transient.peak_sigma)]);
+      return result;
+    }
+    if (view.title === "Segmentation map") return ["Source footprints",
+      "The detector recorded " + s.detections + " footprints. The full-frame table provides measurements for each source.",[]];
+    if (view.title === "Original r-band field") return ["Input coverage",
+      coverage(s.valid_pixel_fraction) + " of pixels passed the science coverage mask.",
+      [["Frame size",s.input.shape_yx.slice().reverse().join(" × ") + " px"]]];
+    if (view.title === "Earlier exposure" || view.title === "Newer exposure") {
+      const input = s.inputs[view.title === "Earlier exposure" ? "reference" : "science"];
+      return ["Exposure metadata","Use the subtraction overlay to compare the observations on a common grid.",
+        [["Observation MJD",fmt(input.mjd,4)],["Seeing",arcsec(input.seeing)]]];
+    }
+    if (view.title === "Usable overlap") return ["Coverage for subtraction",
+      coverage(s.overlap_fraction) + " of the reference grid is usable. The residual search is limited to that footprint.",[]];
+    if (view.title === "Difference variance") return ["Estimated subtraction noise",
+      "Compare this map with the signed difference to see where noise affects the interpretation of a residual.",
+      [["Difference noise floor",fmt(s.calibration?.difference_noise_floor,3)]]];
+    return pairFinding(s);
+  }
+  function referenceNote(view) {
+    const c = run.comparison;
+    if (!c?.published_position_deg || !view.summary || !c.v2_reference_centroid_matches) return "";
+    const matches = c.v2_reference_centroid_matches;
+    const first = matches.find(row => Number(row.rank) === 1);
+    if (first) return "The top candidate is " + arcsec(first.offset_arcsec) + " from the published counterpart.";
+    if (matches.length) return "The highest-ranked candidate within " + arcsec(c.reference_tolerance_arcsec) +
+      " of the published counterpart is rank " + Math.min(...matches.map(row => Number(row.rank))) + ".";
+    return "No ranked detection centroid lies within " + arcsec(c.reference_tolerance_arcsec) + " of the published counterpart.";
+  }
+  function press(group,index) {
+    [...el(group).children].forEach((item,i) => item.setAttribute("aria-pressed",String(i===index)));
+  }
+  function selectLayer(index) {
+    currentLayer = index;
+    const view = run.layers[index], stage = el("stage"), legend = el("legend");
+    text("layer-title",view.title); text("layer-group",view.group);
+    stage.replaceChildren();
+    el("viewer-actions").hidden = !view.image;
+    if (view.image) {
+      const img = node("img"); img.src = view.image; img.alt = view.title;
+      stage.append(img);
+      el("save-image").href = view.image;
+      el("save-image").download = view.title.toLowerCase().replaceAll(" ","-") + ".png";
+    } else {
+      stage.append(node("figcaption","No overlay was saved for this run.","subtle"));
+    }
+    legend.replaceChildren(...(view.image ? view.legend : []).map(([colour,label]) => {
+      const item = node("span"), dot = node("i",undefined,"dot " + colour);
+      dot.setAttribute("aria-hidden","true");
+      item.append(dot,document.createTextNode(label));
+      return item;
+    }));
+    legend.hidden = !legend.children.length;
+    const [title,body,facts] = finding(view);
+    text("finding-title",title); text("finding-body",body); text("reading",view.reading);
+    definitions(el("finding-facts"),facts,"fact");
+    const note = referenceNote(view);
+    el("reference-match").hidden = !note; text("reference-match",note);
+    el("layer-provenance").hidden = !view.transient;
+    text("layer-config",view.transient ? JSON.stringify({candidate:view.transient,host:view.summary},null,2) : "");
+    press("gallery",index);
+    selectTable(view.table);
+  }
+  function drawTable(focusColumn) {
+    const result = run.tables[currentTable];
+    const query = el("row-filter").value.trim().toLowerCase(), original = result.rows;
+    const shown = original.filter(row => !query || Object.values(row).some(value => String(value).toLowerCase().includes(query)));
+    if (sortKey) shown.sort((a,b) => {
+      const x = a[sortKey], y = b[sortKey];
+      if (x === "" || y === "") return x === y ? 0 : x === "" ? 1 : -1;
+      return direction * (numeric(x) && numeric(y) ? Number(x)-Number(y) : String(x).localeCompare(String(y),undefined,{numeric:true}));
+    });
+    const target = el("rows");
     target.replaceChildren();
-    if (!rows.length) { target.append(node("p","No rows in this result.")); return; }
-    const columns = Object.keys(rows[0]);
-    const grid = document.createElement("table"), head = grid.createTHead().insertRow();
+    text("row-count",shown.length + " of " + original.length + " rows");
+    if (!shown.length) {
+      target.append(node("p",original.length ? "No rows match this filter." : "This run returned no rows for this table.","empty subtle"));
+      return;
+    }
+    const columns = Object.keys(original[0]), grid = node("table");
+    grid.setAttribute("aria-label",result.title);
+    const head = grid.createTHead().insertRow();
     for (const col of columns) {
-      const th = document.createElement("th"), button = node("button",names[col] || state(col));
+      const th = node("th"), button = node("button",keys[col] || human(col));
       th.scope = "col"; button.type = "button";
-      if (sorted === col) th.setAttribute("aria-sort", direction === 1 ? "ascending" : "descending");
-      button.addEventListener("click", () => {
-        table(target, rows, col, sorted === col ? -direction : 1);
-        target.querySelector(`th:nth-child(${columns.indexOf(col)+1}) button`).focus();
-      });
+      if (sortKey === col) th.setAttribute("aria-sort",direction === 1 ? "ascending" : "descending");
+      button.onclick = () => {
+        direction = sortKey === col ? -direction : 1; sortKey = col; drawTable(col);
+      };
       th.append(button); head.append(th);
     }
-    const ordered = sorted ? [...rows].sort((a,b) => direction * (
-      numeric(a[sorted]) && numeric(b[sorted]) ? Number(a[sorted])-Number(b[sorted]) :
-        a[sorted].localeCompare(b[sorted],undefined,{numeric:true}))) : rows;
     const body = grid.createTBody();
-    for (const row of ordered) {
+    for (const row of shown) {
       const tr = body.insertRow();
       for (const col of columns) {
-        const val = row[col], cell = tr.insertCell();
-        cell.textContent = numeric(val) && val.includes(".")
-          ? Number(val).toLocaleString(undefined,{maximumSignificantDigits:8,useGrouping:false}) : val || "—";
-        if (val) cell.title = val;
+        const value = row[col], cell = tr.insertCell();
+        cell.textContent = numeric(value) && value.includes(".")
+          ? Number(value).toLocaleString(undefined,{maximumSignificantDigits:9,useGrouping:false}) : value || "—";
+        if (value) cell.title = value;
       }
     }
     target.append(grid);
+    if (focusColumn) head.cells[columns.indexOf(focusColumn)].querySelector("button").focus();
   }
-  overlay(el("overview"),data.image,data.overlay_alt);
-  const tabs = el("tables");
-  for (const name of Object.keys(data.tables)) tabs.append(node("option",name));
-  tabs.onchange = () => table(el("rows"),data.tables[tabs.value]);
-  tabs.onchange();
-  const transient = el("transient");
-  for (const key of Object.keys(data.hosts)) transient.append(node("option",key));
-  if (transient.options.length) {
-    el("host").hidden = false;
-    transient.onchange = () => {
-      const run = data.hosts[transient.value];
-      el("host-status").textContent = state(run.status);
-      overlay(el("host-image"),run.image,"Reference image with host footprints and the transient position.");
-      table(el("host-rows"),run.table);
-    };
-    transient.onchange();
+  function selectTable(index) {
+    currentTable=index; sortKey=""; direction=1; el("row-filter").value="";
+    press("tables",index);
+    el("save-csv").disabled = !run.tables[index].rows.length;
+    drawTable();
   }
+  function selectRun(index) {
+    run = runs[index];
+    const s = run.summary, pair = s.mode === "pair_search";
+    text("workflow",pair ? "Image-pair search" : "Known-position search");
+    text("page-title",pair ? "Blind transient search" : "Host galaxy search");
+    text("run-name",run.comparison?.event_id ? run.comparison.event_id + " · " + run.name : run.name);
+    text("run-status",status(s.status));
+    el("run-status").className = "status " + (needsReview(s.status) ? "review" : s.status.startsWith("no_") ? "neutral" : "");
+    definitions(el("metrics"),pair
+      ? [["Residual detections",fmt(s.detections,0)],["Retained candidates",fmt(s.candidates,0)],
+        ["Usable overlap",coverage(s.overlap_fraction)],["Detection threshold",sigma(s.transient_sigma)]]
+      : [["Full-frame detections",fmt(s.detections,0)],["Ranked candidates",fmt(s.candidates,0)],
+        ["Host search radius",arcsec(s.radius_arcsec)],["Valid image pixels",coverage(s.valid_pixel_fraction)]],"metric");
+    text("layer-count",run.layers.length + (run.layers.length === 1 ? " view" : " views"));
+    text("config",JSON.stringify(s,null,2));
+    el("comparison").hidden = !run.comparison;
+    text("comparison-json",run.comparison ? JSON.stringify(run.comparison,null,2) : "");
+    el("files").replaceChildren(...run.artifacts.map(file => {
+      const link = node("a",file.name,"control"); link.href=file.url; link.download=file.name; return link;
+    }));
+    el("gallery").replaceChildren(...run.layers.map((view,i) => {
+      const button = node("button",undefined,"tile"); button.type = "button";
+      const thumb = node(view.image ? "img" : "span",undefined,"thumbnail");
+      if (view.image) { thumb.src=view.image; thumb.alt=""; thumb.loading="lazy"; }
+      const caption = node("span",undefined,"tile-content");
+      caption.append(node("span",view.title,"tile-label"),node("span",view.group,"tile-type"));
+      button.append(thumb,caption); button.onclick=() => selectLayer(i);
+      return button;
+    }));
+    el("tables").replaceChildren(...run.tables.map((table,i) => {
+      const tab=node("button",table.title,"tab"); tab.type="button"; tab.onclick=() => selectTable(i); return tab;
+    }));
+    selectLayer(0);
+  }
+  el("run-select").replaceChildren(...runs.map(item => node("option",item.name)));
+  el("run-select").onchange=event => selectRun(event.target.selectedIndex);
+  el("row-filter").oninput=() => drawTable();
+  el("expand").onclick=() => {
+    const view = run.layers[currentLayer];
+    text("zoom-title",view.title);
+    el("zoomed").src=view.image; el("zoomed").alt=view.title;
+    el("viewer-dialog").showModal();
+  };
+  el("save-csv").onclick=() => {
+    const result = run.tables[currentTable];
+    if (!result.rows.length) return;
+    const columns = Object.keys(result.rows[0]), quote = value => '"' + String(value).replaceAll('"','""') + '"';
+    const rows = [columns,...result.rows.map(row => columns.map(col => row[col]))];
+    const data = rows.map(row => row.map(quote).join(",")).join("\r\n")+"\r\n";
+    const url = URL.createObjectURL(new Blob([data],{type:"text/csv;charset=utf-8"}));
+    const anchor = node("a");
+    anchor.href=url; anchor.download=result.filename; document.body.append(anchor);
+    anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url),1000);
+  };
+  selectRun(0);
 </script>
+</body>
 </html>

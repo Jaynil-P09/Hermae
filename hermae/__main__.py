@@ -47,7 +47,8 @@ def main():
     pair.add_argument("--transient-weights", type=Path)
     pair.add_argument("--device", default="cpu")
     view = commands.add_parser("dashboard", help="build an offline HTML view from saved run outputs")
-    view.add_argument("--run", required=True, type=Path)
+    view.add_argument("--run", required=True, action="append", type=Path,
+                      help="saved run directory; repeat to combine results")
     view.add_argument("--out", type=Path)
     args = parser.parse_args()
     if args.command == "dashboard":
