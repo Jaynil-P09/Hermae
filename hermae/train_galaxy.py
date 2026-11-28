@@ -19,6 +19,7 @@ from .development import Benchmark
 from .galaxy import GalaxyDetector, GalaxyNet, instances, pixels
 from .training import BestCheckpoint, optimization_arguments, validate_optimization
 from .training_device import add_device_argument, resolve_device
+from .training_preview import add_preview_argument, captured_forward, preview_for
 
 CROP = 96
 SETTINGS = ((.35, .15), (.35, .30), (.45, .20), (.50, .40), (.60, .45),
@@ -156,6 +157,7 @@ def fit(tensors, validation, args, rates=None):
     optimiser = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
     generator = torch.Generator().manual_seed(args.seed)
     checkpoint = BestCheckpoint(args.patience, rates)
+    preview = preview_for(args)
     for epoch in range(1, args.epochs + 1):
         checkpoint.start_epoch(optimiser)
         model.train()
@@ -166,7 +168,19 @@ def fit(tensors, validation, args, rates=None):
                 image, label, weight = (t.flip((-1,)) for t in (image, label, weight))
             if indices[-1] % 2 == 0:
                 image, label, weight = (t.transpose(-1, -2) for t in (image, label, weight))
-            score = loss(model(image), label, weight)
+            if preview and preview.active(epoch):
+                logits, feature = captured_forward(model, model.low, image)
+                estimate = logits.detach().sigmoid()
+                preview.show("Galaxy U-Net", epoch, args.epochs, (
+                    ("Science crop", image[:, 0], "image"),
+                    ("Encoder features", feature, "image"),
+                    ("Predicted footprint", estimate[:, 0], "mask"),
+                    ("Predicted centres", estimate[:, 1], "mask"),
+                    ("Training footprint", label[:, 0], "mask"),
+                ), [f"Crop {i + 1:,}/{len(tensors[0]):,}" for i in indices.tolist()])
+            else:
+                logits = model(image)
+            score = loss(logits, label, weight)
             optimiser.zero_grad()
             score.backward()
             optimiser.step()
@@ -308,6 +322,7 @@ def main():
     parser.add_argument("--crops-per-field", type=int, default=32)
     parser.add_argument("--seed", type=int, default=42)
     add_device_argument(parser)
+    add_preview_argument(parser)
     parser.add_argument("--limit", type=int, help="optional smoke-test field limit per split")
     args = parser.parse_args()
     validate_optimization(parser, args)

@@ -14,6 +14,7 @@ from .pair import difference, frames, residual_candidates
 from .training import BestCheckpoint, optimization_arguments, validate_optimization
 from .transient import TransientNet, classify, stamps
 from .training_device import add_device_argument, resolve_device
+from .training_preview import add_preview_argument, captured_forward, preview_for
 
 BASELINE = 4.
 MATCH = 2.5
@@ -69,13 +70,14 @@ def training_examples(training):
     return torch.from_numpy(np.stack(images)), torch.tensor(target, dtype=torch.float32), audit
 
 
-def fit(images, target, validation, args, rates=None):
+def fit(images, target, validation, args, rates=None, *, audit=None):
     torch.manual_seed(args.seed)
     rng = np.random.default_rng(args.seed)
     model = TransientNet().to(args.device)
     optimiser = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
     groups = [(target == i).nonzero().flatten().numpy() for i in (0, 1)]
     checkpoint = BestCheckpoint(args.patience, rates)
+    preview = preview_for(args)
     per_class = max(map(len, groups))
     for epoch in range(1, args.epochs + 1):
         checkpoint.start_epoch(optimiser)
@@ -92,7 +94,23 @@ def fit(images, target, validation, args, rates=None):
             batch_images = torch.rot90(batch_images, int(rng.integers(4)), (-2, -1))
             if rng.integers(2):
                 batch_images = batch_images.flip((-1,))
-            loss = F.binary_cross_entropy_with_logits(model(batch_images), target[batch].to(args.device))
+            if preview and preview.active(epoch):
+                logits, feature = captured_forward(model, model.features[1], batch_images)
+                scores = logits.detach().sigmoid().cpu().tolist()
+                details = []
+                for index, score in zip(batch.tolist(), scores):
+                    entry = f"{audit[index]['event']} · " if audit else ""
+                    label = "Confirmed alert" if target[index] else "Dipole artifact"
+                    details.append(f"{entry}Stamp {index + 1}/{len(images)} · CNN score {score:.3f} · {label}")
+                preview.show("Optical transient CNN", epoch, args.epochs, (
+                    ("Reference", batch_images[:, 0], "image"),
+                    ("Science", batch_images[:, 1], "image"),
+                    ("Signed residual", batch_images[:, 2], "signed"),
+                    ("Encoder features", feature, "image"),
+                ), details)
+            else:
+                logits = model(batch_images)
+            loss = F.binary_cross_entropy_with_logits(logits, target[batch].to(args.device))
             optimiser.zero_grad()
             loss.backward()
             optimiser.step()
@@ -151,6 +169,7 @@ def main():
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     add_device_argument(parser)
+    add_preview_argument(parser)
     optimization_arguments(parser, learning_rate=.0015, patience=15)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--seed", type=int, default=42)
@@ -172,7 +191,7 @@ def main():
     validation = [load_pair(pair, BASELINE) for pair in pairs if pair["split"] == "validation"]
     images, labels, audit = training_examples(training)
     print(f"Using {int(labels.sum())} real alerts and {len(labels)-int(labels.sum())} candidate dipoles", flush=True)
-    model, checkpoint = fit(images, labels, validation, args)
+    model, checkpoint = fit(images, labels, validation, args, audit=audit)
     _, threshold, options = validation_metrics(model, validation, args.device)
     baseline = evaluate(validation, [[1.] * len(pair[2]) for pair in validation], 0.)
     torch.save(dict(kind="hermae-transient-v1", model=model.cpu().state_dict(), baseline_sigma=BASELINE,

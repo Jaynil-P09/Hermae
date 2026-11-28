@@ -17,6 +17,7 @@ from .host import rank_hosts
 from .ranker import HostRanker, candidate_inputs, score
 from .training import BestCheckpoint, optimization_arguments, validate_optimization
 from .training_device import add_device_argument, resolve_device
+from .training_preview import add_preview_argument, captured_forward, preview_for
 
 POOLS = ("catalogue", "image", "union")
 
@@ -112,6 +113,10 @@ def fit(fields, validation, use_catalogue, args, rates=None):
         raise ValueError("No training fields had a unique published counterpart in their candidate pool.")
     pool = "union" if use_catalogue else "image"
     checkpoint = BestCheckpoint(args.patience, rates)
+    preview = preview_for(args)
+    mode = "Catalogue fusion" if use_catalogue else "Image-first"
+    backend = getattr(args, "preview_backend", None)
+    title = f"{backend} / {mode}" if backend else f"Host ranker / {mode}"
     for epoch in range(1, args.epochs + 1):
         checkpoint.start_epoch(optimiser)
         model.train()
@@ -120,8 +125,22 @@ def fit(fields, validation, use_catalogue, args, rates=None):
         for batch in np.array_split(rng.permutation(len(eligible)), batches):
             losses = []
             for idx in batch:
-                _, tensors, _, reference = eligible[idx]
-                logits = model(*(value.to(args.device) for value in tensors))
+                event, tensors, _, reference = eligible[idx]
+                inputs = tuple(value.to(args.device) for value in tensors)
+                if preview and preview.active(epoch):
+                    logits, feature = captured_forward(model, model.encoder[1], *inputs)
+                    local, wide = inputs[:2]
+                    positive = int(reference["union"][0])
+                    scores = logits.detach().softmax(dim=0).cpu().tolist()
+                    preview.show(title, epoch, args.epochs, (
+                        ("Candidate crop", local[:, 0], "image"),
+                        ("Wider sky context", wide[:, 0], "image"),
+                        ("Encoder features", feature, "image"),
+                        ("Source footprint", local[:, 1], "mask"),
+                    ), [f"{event} · Candidate {i+1}/{len(scores)} · Field weight {s:.3f}"
+                        + (" · Training host" if i == positive else "") for i, s in enumerate(scores)])
+                else:
+                    logits = model(*inputs)
                 losses.append(torch.logsumexp(logits, 0) - logits[int(reference["union"][0])])
             loss = torch.stack(losses).mean()
             optimiser.zero_grad()
@@ -129,7 +148,6 @@ def fit(fields, validation, use_catalogue, args, rates=None):
             optimiser.step()
             totals.append(float(loss.detach()))
         train_loss = float(np.mean(totals))
-        mode = "Catalogue fusion" if use_catalogue else "Image-first"
         if rates is not None:
             print(f"{mode} epoch {epoch}/{args.epochs}  loss {train_loss:.4f}", flush=True)
             checkpoint.observe(model, optimiser, (-train_loss,), train_loss=train_loss)
@@ -183,6 +201,7 @@ def main():
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--galaxy-weights", type=Path, help="frozen CNN detector; omit for the classical detector")
     add_device_argument(parser)
+    add_preview_argument(parser)
     optimization_arguments(parser, learning_rate=.001, patience=18)
     parser.add_argument("--batch-fields", type=int, default=8)
     parser.add_argument("--seed", default=42, type=int)

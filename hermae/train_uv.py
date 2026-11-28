@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from .development import digest
 from .training import DEFAULT_EPOCHS
 from .training_device import add_device_argument, resolve_device
+from .training_preview import add_preview_argument, preview_for
 from .uv import GALEX, SIZE, UVLocalizer, candidates, features, probability_map, read_uv, robust_scale, write_run
 
 
@@ -161,20 +162,23 @@ def main():
     parser.add_argument("--samples", type=int, default=128, help="Training patches per GALEX image")
     parser.add_argument("--seed", type=int, default=42)
     add_device_argument(parser)
+    add_preview_argument(parser)
     args = parser.parse_args()
     if args.epochs < 1 or args.samples < 4:
         parser.error("Use positive epochs and at least four samples per training image.")
     device, device_name = resolve_device(parser, args.device)
+    preview = preview_for(args)
     torch.manual_seed(args.seed)
     rng = np.random.default_rng(args.seed)
     args.out.mkdir(parents=True, exist_ok=True)
     fields = read_fields(args.manifest)
     groups = split_fields(fields, rng)
-    x, y, _ = simulate(fields, groups["train"], args.samples, rng)
+    x, y, training = simulate(fields, groups["train"], args.samples, rng)
     vx, _, validation = simulate(fields, groups["validation"], 96, rng)
     tx, _, test = simulate(fields, groups["test"], 128, rng, retain=True)
     print(f"{len(x)} training, {len(vx)} validation and {len(tx)} test patches", flush=True)
-    loader = DataLoader(TensorDataset(torch.from_numpy(x), torch.from_numpy(y)), batch_size=48, shuffle=True)
+    loader = DataLoader(TensorDataset(torch.from_numpy(x), torch.from_numpy(y), torch.arange(len(x))),
+                        batch_size=48, shuffle=True)
     net = UVLocalizer().to(device)
     optimizer = torch.optim.AdamW(net.parameters(), lr=.0015)
     loss_weight = torch.tensor(35., device=device)
@@ -184,9 +188,22 @@ def main():
     for epoch in range(1, args.epochs + 1):
         net.train()
         loss_sum = 0.
-        for batch, labels in loader:
+        for batch, labels, indices in loader:
             optimizer.zero_grad()
             logits = net(batch.to(device))
+            if preview and preview.active(epoch):
+                details = []
+                for i in indices.tolist():
+                    example = training[i]
+                    target = "simulated source" if example["truth"] is not None else "quiet control"
+                    details.append(f"{example['event']} · {example['band'].upper()} · Patch {i+1:,}/{len(x):,} · {target}")
+                preview.show("UV transient localizer", epoch, args.epochs, (
+                    ("Reference", batch[:, 0], "image"),
+                    ("Science", batch[:, 1], "image"),
+                    ("Signed residual", batch[:, 2], "signed"),
+                    ("CNN score map", logits.detach()[:, 0].sigmoid(), "heat"),
+                    ("Training target", labels[:, 0], "mask"),
+                ), details)
             loss = F.binary_cross_entropy_with_logits(logits, labels.to(device), pos_weight=loss_weight)
             loss.backward()
             optimizer.step()

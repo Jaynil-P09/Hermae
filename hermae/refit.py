@@ -14,6 +14,7 @@ from .development import Benchmark, digest
 from .galaxy import GalaxyDetector
 from .training import DEFAULT_EPOCHS
 from .training_device import add_device_argument, resolve_device
+from .training_preview import add_preview_argument
 
 
 def save_report(path, **report):
@@ -40,9 +41,10 @@ def schedule(prior, model, history_key, device, fields, epochs):
     return args, rates
 
 
-def refit_galaxy(data, ids, source, folder, device, epochs):
+def refit_galaxy(data, ids, source, folder, device, epochs, *, live_preview=None):
     prior = prior_report(source, data.split_hash)
     args, rates = schedule(prior, prior, "history", device, ("batch_size", "crops_per_field"), epochs)
+    args.live_preview = live_preview
     tensors, used = train_galaxy.crops(data, ids, np.random.default_rng(args.seed), args.crops_per_field)
     if not used:
         raise ValueError("No galaxy crops could be prepared.")
@@ -61,7 +63,7 @@ def refit_galaxy(data, ids, source, folder, device, epochs):
     return path, len(used)
 
 
-def refit_rankers(data, ids, source, folder, device, epochs, detector_path=None):
+def refit_rankers(data, ids, source, folder, device, epochs, detector_path=None, *, live_preview=None):
     prior = prior_report(source, data.split_hash)
     backend = GalaxyDetector.load(detector_path, device) if detector_path else None
     fields, excluded = train_ranker.prepare(data, ids, backend)
@@ -72,6 +74,8 @@ def refit_rankers(data, ids, source, folder, device, epochs, detector_path=None)
     for mode in ("image_only", "catalogue_fusion"):
         use_catalogue = mode == "catalogue_fusion"
         args, rates = schedule(prior, prior["models"][mode], "epoch_metrics", device, ("batch_fields",), epochs)
+        args.live_preview = live_preview
+        args.preview_backend = "U-Net candidates" if detector_path else "Classical candidates"
         model, progress, used = train_ranker.fit(fields, None, use_catalogue, args, rates)
         torch.save(dict(kind="hermae-host-v1", model=model.cpu().state_dict(), use_catalogue=use_catalogue,
                         review_gap=None, detector_sha256=checkpoint_hash, split_sha256=data.split_hash),
@@ -89,7 +93,7 @@ def refit_rankers(data, ids, source, folder, device, epochs, detector_path=None)
     return {mode: len(record["train_ids"]) for mode, record in result.items()}
 
 
-def refit_transient(data, manifest_path, source, folder, device, epochs, supplemental=None):
+def refit_transient(data, manifest_path, source, folder, device, epochs, supplemental=None, *, live_preview=None):
     prior = prior_report(source, data.split_hash)
     manifest = prior_report(manifest_path, data.split_hash)
     if prior["manifest_sha256"] != digest(manifest_path):
@@ -107,7 +111,8 @@ def refit_transient(data, manifest_path, source, folder, device, epochs, supplem
     print(f"Transient CNN | processed {len(pairs)} development pairs and found {len(audit)} labelled residuals",
           flush=True)
     args, rates = schedule(prior, prior, "history", device, ("batch_size",), epochs)
-    model, progress = train_transient.fit(images, target, None, args, rates)
+    args.live_preview = live_preview
+    model, progress = train_transient.fit(images, target, None, args, rates, audit=audit)
     torch.save(dict(kind="hermae-transient-v1", model=model.cpu().state_dict(), baseline_sigma=prior["baseline_sigma"],
                     threshold=prior["threshold"], split_sha256=data.split_hash), folder / "transient.pt")
     counts = dict(pairs=len(pairs), exposures=len({p[k]["sha256"] for p in pairs for k in ("reference", "science")}),
@@ -136,6 +141,7 @@ def main():
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--epochs", type=int, default=DEFAULT_EPOCHS, help="epochs per model")
     add_device_argument(parser)
+    add_preview_argument(parser)
     args = parser.parse_args()
     if args.epochs < 1:
         parser.error("Epochs must be positive.")
@@ -153,17 +159,21 @@ def main():
     if any(out.iterdir()):
         parser.error("Choose a new or empty output directory for the refit.")
     if args.transient_only:
-        refit_transient(data, args.manifest, schedules["transient"], out, device, args.epochs, args.supplemental_manifest)
+        refit_transient(data, args.manifest, schedules["transient"], out, device, args.epochs,
+                        args.supplemental_manifest, live_preview=args.live_preview)
         print(f"Transient refit finished. Checkpoint and report are in {out}", flush=True)
         return
     for stage in stages:
         (out / stage).mkdir()
 
-    detector, galaxy_count = refit_galaxy(data, ids, schedules["galaxy"], out / "galaxy", device, args.epochs)
-    classical = refit_rankers(data, ids, schedules["ranker-classical"], out / "ranker-classical", device, args.epochs)
-    unet = refit_rankers(data, ids, schedules["ranker-unet"], out / "ranker-unet", device, args.epochs, detector)
+    detector, galaxy_count = refit_galaxy(data, ids, schedules["galaxy"], out / "galaxy", device, args.epochs,
+                                         live_preview=args.live_preview)
+    classical = refit_rankers(data, ids, schedules["ranker-classical"], out / "ranker-classical", device, args.epochs,
+                              live_preview=args.live_preview)
+    unet = refit_rankers(data, ids, schedules["ranker-unet"], out / "ranker-unet", device, args.epochs, detector,
+                         live_preview=args.live_preview)
     transient = refit_transient(data, args.manifest, schedules["transient"], out / "transient", device, args.epochs,
-                                args.supplemental_manifest)
+                                args.supplemental_manifest, live_preview=args.live_preview)
     save_report(out / "report.json", split_sha256=data.split_hash, device=device, device_name=device_name,
                 epochs_per_model=args.epochs, development_fields=len(ids),
                 reserved_fields=sum(s == "test" for s in data.splits.values()),
