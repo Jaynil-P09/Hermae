@@ -84,9 +84,11 @@ def main():
     if archive:
         dashboard([], nasa / "archive-dashboard.html", collections=archive,
                   previews=[("NASA archive images", preview)] if preview.is_file() else [])
-    if (m101 / "uv-model-estimate.png").is_file():
+    featured = []
+    if (m101 / "run.json").is_file() and (m101 / "uv-model-estimate.png").is_file():
         dashboard(m101, m101 / "dashboard.html")
-    dashboard([], results / "dashboard.html", collections=[*expanded, *original],
+        featured.append(("M101 / Near-UV estimate", m101))
+    dashboard([], results / "dashboard.html", collections=[*featured, *expanded, *original],
               previews=[("NASA fields", preview), ("NASA archive images", preview)] if preview.is_file() else [])
     print(f"{len(optical)} optical runs, {len(uv)} GALEX references and "
           f"{len(groups['UV / Swift epochs'])} Swift epoch comparisons")
