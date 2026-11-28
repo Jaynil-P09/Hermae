@@ -4,21 +4,52 @@ Train in `Hermae_v2` with the audited `Hermae_v1` checkout alongside it.
 The training commands select CUDA automatically when available. Pass
 `--device cuda` to require an NVIDIA GPU, `--device cuda:1` to select a specific
 GPU, or `--device cpu` for CPU execution. Each run records the selected device
-and its name in `report.json`. All training and operating-point selection used development
-fields from the frozen v1 split. The archived ZTF pair acquisition also used
-that split. The commands below write fresh checkpoints to `results/retrain`.
+and its name in `report.json`. The commands below write new checkpoints to
+`results/quality-training`. Use a new output folder to keep multiple runs.
 
 ```powershell
-.venv/Scripts/python.exe -m hermae.train_galaxy --v1 ../Hermae_v1 --out results/retrain/galaxy --epochs 12 --device cuda
-.venv/Scripts/python.exe -m hermae.train_ranker --v1 ../Hermae_v1 --out results/retrain/ranker-classical --epochs 20 --device cuda
-.venv/Scripts/python.exe -m hermae.train_ranker --v1 ../Hermae_v1 --out results/retrain/ranker-unet --epochs 20 --device cuda --galaxy-weights results/retrain/galaxy/galaxy.pt
-.venv/Scripts/python.exe -m hermae.train_transient --v1 ../Hermae_v1 --manifest results/ztf-development/manifest.json --out results/retrain/transient --epochs 20 --device cuda
+.venv/Scripts/python.exe -m hermae.train_galaxy --v1 ../Hermae_v1 --out results/quality-training/galaxy --device cuda
+.venv/Scripts/python.exe -m hermae.train_ranker --v1 ../Hermae_v1 --out results/quality-training/ranker-classical --device cuda
+.venv/Scripts/python.exe -m hermae.train_ranker --v1 ../Hermae_v1 --out results/quality-training/ranker-unet --device cuda --galaxy-weights results/quality-training/galaxy/galaxy.pt
+.venv/Scripts/python.exe -m hermae.train_transient --v1 ../Hermae_v1 --manifest results/ztf-development/manifest.json --out results/quality-training/transient --device cuda
 ```
 
 If you need to acquire ZTF pairs again, run
 `.venv/Scripts/python.exe -m hermae.ztf_pairs --v1 ../Hermae_v1 --out results/ztf-new --limit 35`
 and pass the new manifest to the transient trainer. Use the archived acquisition
 manifest and its FITS hashes for the exact release cohort.
+
+| Trainer | Epoch cap | Early-stop patience | Batch | Initial learning rate |
+| --- | ---: | ---: | --- | ---: |
+| Galaxy U-Net | 100 | 12 | 32 crops | 0.002 |
+| Host ranker | 120 | 18 | 8 fields | 0.001 |
+| Transient classifier | 100 | 15 | 32 residuals | 0.0015 |
+
+The galaxy trainer samples up to 32 crops per field. The default seed is 42
+and AdamW weight decay is 0.01. The trainers halve the rate during a
+validation plateau and restore the selected checkpoint at the end. The
+galaxy trainer selects by loss on separate validation crops. Host rankers
+select by top-one validation accuracy and mean reciprocal rank on the
+image or union pool. The transient trainer prioritizes confirmed recovery
+and fewer pre-event control alerts on the development pairs. The small
+transient validation cohort limits comparisons. Use each trainer's
+`--help` for overrides. Reports keep the validation metrics, epoch selected,
+and learning-rate history.
+
+The CUDA rerun in `results/quality-training` selected galaxy epoch 39 of
+51 and doubled the training crops to 3,072. The detector matched 524/1,330
+catalogue centres with 322 unmatched detections, compared with 501/1,330
+and 458 for the release U-Net. At the selected operating point, the new
+U-Net missed more published supernova hosts in the image-only pool.
+The classical detector with the new image-only ranker had the strongest
+FITS-only host result at 20/22 development fields. The U-Net route had
+4/22, with only four unique published hosts retrieved. The transient
+classifier selected epoch 5 of 20 and reproduced the development recovery
+and control-alert counts. The rerun used the development split for model
+selection.
+
+The figures below describe the frozen release runs in the tagged
+`hermae-v2-frozen-eval` checkout.
 
 ## Galaxy detector
 

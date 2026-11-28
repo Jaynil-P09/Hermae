@@ -11,11 +11,13 @@ from torch.nn import functional as F
 
 from .development import Benchmark, digest
 from .pair import difference, frames, residual_candidates
+from .training import BestCheckpoint, optimization_arguments, validate_optimization
 from .transient import TransientNet, classify, stamps
 from .training_device import add_device_argument, resolve_device
 
 BASELINE = 4.
 MATCH = 2.5
+THRESHOLDS = (.25, .4, .5, .6, .75)
 
 
 def load_pair(pair, sigma):
@@ -66,29 +68,43 @@ def training_examples(training):
     return torch.from_numpy(np.stack(images)), torch.tensor(target, dtype=torch.float32), audit
 
 
-def fit(images, target, epochs, seed, device):
-    torch.manual_seed(seed)
-    rng = np.random.default_rng(seed)
-    model = TransientNet().to(device)
-    optimiser = torch.optim.AdamW(model.parameters(), lr=.0015)
+def fit(images, target, validation, args):
+    torch.manual_seed(args.seed)
+    rng = np.random.default_rng(args.seed)
+    model = TransientNet().to(args.device)
+    optimiser = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
     groups = [(target == i).nonzero().flatten().numpy() for i in (0, 1)]
-    history = []
-    for epoch in range(1, epochs + 1):
+    checkpoint = BestCheckpoint(args.patience)
+    for epoch in range(1, args.epochs + 1):
         one_each = np.stack([rng.choice(group, size=max(map(len, groups)), replace=True) for group in groups], axis=1)
         totals = []
-        for batch in torch.from_numpy(one_each.reshape(-1)).split(32):
-            batch_images = images[batch].to(device)
+        for batch in torch.from_numpy(one_each.reshape(-1)).split(args.batch_size):
+            batch_images = images[batch].to(args.device)
             batch_images = torch.rot90(batch_images, int(rng.integers(4)), (-2, -1))
             if rng.integers(2):
                 batch_images = batch_images.flip((-1,))
-            loss = F.binary_cross_entropy_with_logits(model(batch_images), target[batch].to(device))
+            loss = F.binary_cross_entropy_with_logits(model(batch_images), target[batch].to(args.device))
             optimiser.zero_grad()
             loss.backward()
             optimiser.step()
             totals.append(float(loss.detach()))
-        history.append(float(np.mean(totals)))
-        print(f"Transient CNN epoch {epoch}: {history[-1]:.4f}", flush=True)
-    return model.eval(), history
+        train_loss = float(np.mean(totals))
+        guessed, threshold, options = validation_metrics(model.eval(), validation, args.device)
+        operating_point = options[threshold]
+        positive = [guesses[index] for (_, _, _, index, _), guesses in zip(validation, guessed)
+                    if index is not None]
+        control = [value for (pair, _, _, _, covered), guesses in zip(validation, guessed)
+                   if pair["kind"] == "pre_event_control" and covered for value in guesses]
+        recovered, alerts = operating_point["recovered"], operating_point["control_alerts"]
+        control_error = float(np.mean(np.square(control))) if control else 0.
+        error = float(np.mean((1 - np.asarray(positive))**2)) + control_error if positive else None
+        key = (recovered, -alerts, -error) if error is not None else (-train_loss,)
+        print(f"Transient CNN epoch {epoch}/{args.epochs}  loss {train_loss:.4f}"
+              f"  validation {recovered} recovered, {alerts} control alerts", flush=True)
+        if checkpoint.observe(model, optimiser, key, train_loss=train_loss, validation_recovered=recovered,
+                              validation_control_alerts=alerts, validation_score_error=error, threshold=threshold):
+            break
+    return checkpoint.restore(model), checkpoint
 
 
 def evaluate(dataset, guesses, threshold):
@@ -108,17 +124,28 @@ def evaluate(dataset, guesses, threshold):
                 rows=rows)
 
 
+def validation_metrics(model, validation, device):
+    guessed = [classify(model, delta, candidates, device) if candidates else []
+               for _, delta, candidates, _, _ in validation]
+    options = {threshold: evaluate(validation, guessed, threshold) for threshold in THRESHOLDS}
+    threshold = max(THRESHOLDS, key=lambda value: (options[value]["recovered"], -options[value]["control_alerts"],
+                                                   -abs(value - .5)))
+    return guessed, threshold, options
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--v1", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     add_device_argument(parser)
-    parser.add_argument("--epochs", type=int, default=20)
+    optimization_arguments(parser, epochs=100, learning_rate=.0015, patience=15)
+    parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
-    if args.epochs < 1:
-        parser.error("Epochs must be positive.")
+    validate_optimization(parser, args)
+    if args.batch_size < 2 or args.batch_size % 2:
+        parser.error("Batch size must be a positive even number for balanced batches.")
     args.device, args.device_name = resolve_device(parser, args.device)
     data = Benchmark(args.v1)
     out = data.output(args.out)
@@ -133,19 +160,17 @@ def main():
     validation = [load_pair(pair, BASELINE) for pair in pairs if pair["split"] == "validation"]
     images, labels, audit = training_examples(training)
     print(f"Using {int(labels.sum())} real alerts and {len(labels)-int(labels.sum())} candidate dipoles", flush=True)
-    model, history = fit(images, labels, args.epochs, args.seed, args.device)
-    guessed = [classify(model, delta, candidates, args.device) if candidates else []
-               for _, delta, candidates, _, _ in validation]
+    model, checkpoint = fit(images, labels, validation, args)
+    _, threshold, options = validation_metrics(model, validation, args.device)
     baseline = evaluate(validation, [[1.] * len(pair[2]) for pair in validation], 0.)
-    thresholds = (.25, .4, .5, .6, .75)
-    options = {threshold: evaluate(validation, guessed, threshold) for threshold in thresholds}
-    threshold = max(thresholds, key=lambda value: (options[value]["recovered"], -options[value]["control_alerts"],
-                                                    -abs(value - .5)))
     torch.save(dict(kind="hermae-transient-v1", model=model.cpu().state_dict(), baseline_sigma=BASELINE,
                     threshold=threshold, split_sha256=data.split_hash), out / "transient.pt")
     report = dict(manifest_sha256=digest(args.manifest), split_sha256=data.split_hash, seed=args.seed,
                   epochs=args.epochs, device=args.device, device_name=args.device_name,
-                  baseline_sigma=BASELINE, threshold=threshold, loss=history, training_examples=audit,
+                  learning_rate=args.learning_rate, weight_decay=args.weight_decay,
+                  patience=args.patience, batch_size=args.batch_size, selected_epoch=checkpoint.best_epoch,
+                  history=checkpoint.history, loss=[row["train_loss"] for row in checkpoint.history],
+                  baseline_sigma=BASELINE, threshold=threshold, training_examples=audit,
                   baseline=baseline, classifier=options[threshold], thresholds=options)
     (out / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 

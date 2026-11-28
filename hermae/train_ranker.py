@@ -15,6 +15,7 @@ from .fits_input import sn_position
 from .galaxy import GalaxyDetector, pixels
 from .host import rank_hosts
 from .ranker import HostRanker, candidate_inputs, score
+from .training import BestCheckpoint, optimization_arguments, validate_optimization
 from .training_device import add_device_argument, resolve_device
 
 POOLS = ("catalogue", "image", "union")
@@ -88,33 +89,53 @@ def prepare(benchmark, ids, backend):
     return fields, excluded
 
 
-def fit(fields, use_catalogue, seed, epochs, device):
-    torch.manual_seed(seed)
-    rng = np.random.default_rng(seed)
-    model = HostRanker(use_catalogue).to(device)
-    optimiser = torch.optim.AdamW(model.parameters(), lr=.001)
+def validation_score(model, fields, pool, device):
+    reciprocal = []
+    for _, tensors, pools, references in fields:
+        target = references[pool]
+        if len(target) != 1:
+            continue
+        idx = pools[pool]
+        scores = score(model, tensors, device)
+        order = idx[np.argsort(-scores[idx], kind="stable")]
+        reciprocal.append(1 / (1 + int(np.flatnonzero(order == target[0])[0])))
+    return sum(value == 1 for value in reciprocal), float(np.mean(reciprocal)) if reciprocal else None
+
+
+def fit(fields, validation, use_catalogue, args):
+    torch.manual_seed(args.seed)
+    rng = np.random.default_rng(args.seed)
+    model = HostRanker(use_catalogue).to(args.device)
+    optimiser = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
     eligible = [field for field in fields if len(field[3]["union"]) == 1 and len(field[2]["union"]) > 1]
     if not eligible:
         raise ValueError("No training fields had a unique published counterpart in their candidate pool.")
-    history = []
-    for epoch in range(1, epochs + 1):
+    pool = "union" if use_catalogue else "image"
+    checkpoint = BestCheckpoint(args.patience)
+    for epoch in range(1, args.epochs + 1):
         model.train()
         totals = []
-        for batch in np.array_split(rng.permutation(len(eligible)), (len(eligible) + 7) // 8):
+        batches = (len(eligible) + args.batch_fields - 1) // args.batch_fields
+        for batch in np.array_split(rng.permutation(len(eligible)), batches):
             losses = []
             for idx in batch:
                 _, tensors, _, reference = eligible[idx]
-                logits = model(*(value.to(device) for value in tensors))
+                logits = model(*(value.to(args.device) for value in tensors))
                 losses.append(torch.logsumexp(logits, 0) - logits[int(reference["union"][0])])
             loss = torch.stack(losses).mean()
             optimiser.zero_grad()
             loss.backward()
             optimiser.step()
             totals.append(float(loss.detach()))
-        history.append(float(np.mean(totals)))
-        print(f"{'Catalogue fusion' if use_catalogue else 'Image-first'} epoch {epoch}: {history[-1]:.4f}",
-              flush=True)
-    return model.eval(), history, [field[0] for field in eligible]
+        train_loss = float(np.mean(totals))
+        model.eval()
+        top1, mrr = validation_score(model, validation, pool, args.device)
+        key = (top1, mrr) if mrr is not None else (-train_loss,)
+        print(f"{'Catalogue fusion' if use_catalogue else 'Image-first'} epoch {epoch}/{args.epochs}"
+              f"  loss {train_loss:.4f}  {pool} validation top-1 {top1}", flush=True)
+        if checkpoint.observe(model, optimiser, key, train_loss=train_loss, validation_top1=top1, validation_mrr=mrr):
+            break
+    return checkpoint.restore(model), checkpoint, [field[0] for field in eligible]
 
 
 def measure(fields, model, device):
@@ -157,11 +178,13 @@ def main():
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--galaxy-weights", type=Path, help="frozen CNN detector; omit for the classical detector")
     add_device_argument(parser)
-    parser.add_argument("--epochs", default=20, type=int)
+    optimization_arguments(parser, epochs=120, learning_rate=.001, patience=18)
+    parser.add_argument("--batch-fields", type=int, default=8)
     parser.add_argument("--seed", default=42, type=int)
     args = parser.parse_args()
-    if args.epochs < 1:
-        parser.error("Epochs must be positive.")
+    validate_optimization(parser, args)
+    if args.batch_fields < 1:
+        parser.error("Batch fields must be positive.")
     args.device, args.device_name = resolve_device(parser, args.device)
     torch.set_num_threads(4)
     benchmark = Benchmark(args.v1)
@@ -173,16 +196,21 @@ def main():
     report = dict(split_sha256=benchmark.split_hash, detector_sha256=digest(args.galaxy_weights)
                   if args.galaxy_weights else None, seed=args.seed, epochs=args.epochs,
                   device=args.device, device_name=args.device_name,
+                  learning_rate=args.learning_rate, weight_decay=args.weight_decay,
+                  patience=args.patience, batch_fields=args.batch_fields,
                   train_exclusions=train_exclusions, validation_exclusions=valid_exclusions, models={})
     for mode in ("image_only", "catalogue_fusion"):
         use_catalogue = mode == "catalogue_fusion"
-        model, history, ids = fit(train, use_catalogue, args.seed, args.epochs, args.device)
+        model, checkpoint, ids = fit(train, valid, use_catalogue, args)
         field_results = measure(valid, model, args.device)
         threshold, accepted = review_threshold(field_results["image"])
         torch.save(dict(kind="hermae-host-v1", model=model.cpu().state_dict(), use_catalogue=use_catalogue,
                         review_gap=threshold, detector_sha256=report["detector_sha256"],
                         split_sha256=benchmark.split_hash), out / f"{mode}.pt")
-        report["models"][mode] = dict(history=history, train_ids=ids, review_gap=threshold,
+        report["models"][mode] = dict(history=[row["train_loss"] for row in checkpoint.history],
+                                      epoch_metrics=checkpoint.history, selected_epoch=checkpoint.best_epoch,
+                                      selection_pool="union" if use_catalogue else "image",
+                                      train_ids=ids, review_gap=threshold,
                                       accepted_validation=accepted, fields=field_results,
                                       summaries={p: summary(rows) for p, rows in field_results.items()})
     (out / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

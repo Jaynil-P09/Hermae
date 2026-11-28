@@ -17,6 +17,7 @@ from torch.nn import functional as F
 from .detection import DetectorConfig, detect, detection_inputs
 from .development import Benchmark
 from .galaxy import GalaxyDetector, GalaxyNet, instances, pixels
+from .training import BestCheckpoint, optimization_arguments, validate_optimization
 from .training_device import add_device_argument, resolve_device
 
 CROP = 96
@@ -98,7 +99,7 @@ def inject(signal, variance, valid, targets, weight, known, rng):
     return truth
 
 
-def crops(benchmark, ids, rng):
+def crops(benchmark, ids, rng, per_field):
     features, labels, weights, used = [], [], [], []
     for event in ids:
         frame = benchmark.frame(event)
@@ -114,7 +115,7 @@ def crops(benchmark, ids, rng):
             continue
         used.append(event)
         image = pixels(frame.valid, signal, variance)
-        for i in rng.choice(len(centres), min(16, len(centres)), replace=False):
+        for i in rng.choice(len(centres), min(per_field, len(centres)), replace=False):
             x, y = centres[i]
             x = int(np.clip(x - rng.integers(CROP // 4, 3 * CROP // 4), 0, width - CROP))
             y = int(np.clip(y - rng.integers(CROP // 4, 3 * CROP // 4), 0, height - CROP))
@@ -139,17 +140,27 @@ def loss(logits, target, weight):
     return dice + ((bce + focal) * weight).sum() / weight.sum().clamp_min(1)
 
 
-def fit(tensors, epochs, batch_size, seed, device):
-    torch.manual_seed(seed)
-    model = GalaxyNet().to(device)
-    optimiser = torch.optim.AdamW(model.parameters(), lr=.002)
-    generator = torch.Generator().manual_seed(seed)
-    history = []
-    for epoch in range(1, epochs + 1):
+@torch.inference_mode()
+def validation_loss(model, tensors, batch_size, device):
+    model.eval()
+    scores = []
+    for start in range(0, len(tensors[0]), batch_size):
+        image, label, weight = (t[start:start + batch_size].to(device) for t in tensors)
+        scores.append(float(loss(model(image), label, weight)))
+    return float(np.mean(scores))
+
+
+def fit(tensors, validation, args):
+    torch.manual_seed(args.seed)
+    model = GalaxyNet().to(args.device)
+    optimiser = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
+    generator = torch.Generator().manual_seed(args.seed)
+    checkpoint = BestCheckpoint(args.patience)
+    for epoch in range(1, args.epochs + 1):
         model.train()
         totals = []
-        for indices in torch.randperm(len(tensors[0]), generator=generator).split(batch_size):
-            image, label, weight = (t[indices].to(device) for t in tensors)
+        for indices in torch.randperm(len(tensors[0]), generator=generator).split(args.batch_size):
+            image, label, weight = (t[indices].to(args.device) for t in tensors)
             if indices[0] % 2 == 0:
                 image, label, weight = (t.flip((-1,)) for t in (image, label, weight))
             if indices[-1] % 2 == 0:
@@ -159,9 +170,12 @@ def fit(tensors, epochs, batch_size, seed, device):
             score.backward()
             optimiser.step()
             totals.append(float(score.detach()))
-        history.append(float(np.mean(totals)))
-        print(f"Epoch {epoch}/{epochs}  loss {history[-1]:.4f}", flush=True)
-    return model.eval(), history
+        train_loss = float(np.mean(totals))
+        dev_loss = validation_loss(model, validation, args.batch_size, args.device)
+        print(f"Epoch {epoch}/{args.epochs}  loss {train_loss:.4f}  validation {dev_loss:.4f}", flush=True)
+        if checkpoint.observe(model, optimiser, (-dev_loss,), train_loss=train_loss, validation_loss=dev_loss):
+            break
+    return checkpoint.restore(model), checkpoint
 
 
 def objects(labels):
@@ -248,11 +262,15 @@ def train(args):
     validation_ids = data.ids("validation")
     if args.limit:
         ids, validation_ids = ids[:args.limit], validation_ids[:args.limit]
-    tensors, used = crops(data, ids, np.random.default_rng(args.seed))
+    tensors, used = crops(data, ids, np.random.default_rng(args.seed), args.crops_per_field)
     if not used:
         raise ValueError("No supervised development crops were available.")
+    validation, validation_used = crops(data, validation_ids, np.random.default_rng(args.seed + 2),
+                                        args.crops_per_field)
+    if not validation_used:
+        raise ValueError("No validation crops were available for checkpoint selection.")
     print(f"Training on {len(tensors[0])} crops from {len(used)} fields", flush=True)
-    model, history = fit(tensors, args.epochs, args.batch_size, args.seed, args.device)
+    model, checkpoint = fit(tensors, validation, args)
     assessment = assess(data, model, validation_ids, args.seed + 1, args.device)
     baseline = assessment["classical"]["real"]["unmatched"]
     eligible = [setting for setting in SETTINGS if assessment[setting]["real"]["unmatched"] <= baseline]
@@ -263,7 +281,11 @@ def train(args):
     report = {"split_sha256": data.split_hash, "seed": args.seed, "epochs": args.epochs,
               "batch_size": args.batch_size, "device": args.device, "device_name": args.device_name,
               "training_crops": len(tensors[0]), "train_ids": used,
-              "validation_ids": validation_ids, "loss": history, "thresholds": chosen,
+              "validation_ids": validation_ids, "checkpoint_validation_ids": validation_used,
+              "loss": [row["train_loss"] for row in checkpoint.history], "thresholds": chosen,
+              "history": checkpoint.history, "selected_epoch": checkpoint.best_epoch,
+              "learning_rate": args.learning_rate, "weight_decay": args.weight_decay, "patience": args.patience,
+              "crops_per_field": args.crops_per_field, "validation_crops": len(validation[0]),
               "thresholds_meeting_baseline_unmatched_count": eligible,
               "test_kind": "weak catalogue real-field labels plus separate synthetic injections",
               "results": {str(key): value for key, value in assessment.items()}}
@@ -277,14 +299,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--v1", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--epochs", type=int, default=12)
-    parser.add_argument("--batch-size", type=int, default=24)
+    optimization_arguments(parser, epochs=100, learning_rate=.002, patience=12)
+    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--crops-per-field", type=int, default=32)
     parser.add_argument("--seed", type=int, default=42)
     add_device_argument(parser)
     parser.add_argument("--limit", type=int, help="optional smoke-test field limit per split")
     args = parser.parse_args()
-    if args.epochs < 1 or args.batch_size < 1 or args.limit is not None and args.limit < 1:
-        parser.error("Epochs, batch size and field limit must be positive.")
+    validate_optimization(parser, args)
+    if args.batch_size < 1 or args.crops_per_field < 1 or args.limit is not None and args.limit < 1:
+        parser.error("Batch size, crop count and field limit must be positive.")
     args.device, args.device_name = resolve_device(parser, args.device)
     train(args)
 
