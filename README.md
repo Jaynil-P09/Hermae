@@ -91,6 +91,10 @@ Repeat `--run` to collect several saved runs in one dashboard.
 .venv/Scripts/hermae.exe dashboard --run results/examples/known --run results/examples/pair --out results/dashboard.html
 ```
 
+Use `--collection NAME RUN` in place of `--run` to add a named menu and
+repeat it to include more runs. Use `--collection-preview NAME PNG` to
+attach a preview image to a menu.
+
 `difference.fits` contains the signed residual, coverage mask and variance estimate. Add
 `--transient-weights results/phase4/transient.pt` to try the experimental CNN
 filter. The difference detections are transient candidates pending independent

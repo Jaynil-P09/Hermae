@@ -7,6 +7,14 @@ Use `results/nasa-fields/dashboard.html` for the five wide-field Hermae
 overlays. The contact sheet at `results/nasa-fields/field-preview.png`
 compares the wide optical fields and the ultraviolet view of M101.
 
+The combined dashboard at `results/dashboard.html` switches between
+**Hermae runs** and **NASA fields**. In NASA fields, each event has a
+wide-field overlay and a detailed r-band overlay from the CUDA-trained
+image-only host ranker. The detailed image covers a 60″ host search.
+Use the wide view for galaxies that extend beyond that field of view.
+The **View field preview** button opens the optical and ultraviolet
+contact sheet.
+
 | Event and host | What the field shows | FITS products |
 | --- | --- | --- |
 | [SN 2023ixf in M101](https://www.wis-tns.org/object/2023ixf) | Spiral arms and an off-centre supernova | Wide and detailed Legacy r, Pan-STARRS r, GALEX near UV |

@@ -38,3 +38,14 @@ class DashboardTest(unittest.TestCase):
             self.assertIsNone(runs[1]["layers"][0]["image"])
             self.assertNotIn("overlay.png", [item["name"] for item in runs[1]["artifacts"]])
             self.assertEqual(runs[0]["artifacts"][0]["url"], "known/hosts.csv")
+
+            previews = root / "preview.png"
+            previews.write_bytes(b"\x89PNG\r\n\x1a\n")
+            content = dashboard([], root / "grouped.html", collections=[("Hermae runs", known), ("NASA fields", pair)],
+                                previews=[("NASA fields", previews)]).read_text(encoding="utf-8")
+            payload = re.search(r'id="run-data">(.*?)</script>', content).group(1)
+            menus = json.loads(payload)["collections"]
+            self.assertEqual([(item["name"], item["runs"]) for item in menus],
+                             [("Hermae runs", [0]), ("NASA fields", [1])])
+            self.assertIsNone(menus[0]["preview"])
+            self.assertTrue(menus[1]["preview"].startswith("data:image/png;base64,"))

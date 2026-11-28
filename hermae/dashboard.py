@@ -213,9 +213,15 @@ def run_payload(folder, output_parent):
                 artifacts=artifact_links(folder, summary["files"], output_parent))
 
 
-def dashboard(folder, out=None):
+def dashboard(folder, out=None, *, collections=(), previews=()):
     folders = [folder] if isinstance(folder, Path) else list(folder)
-    folders = list(dict.fromkeys(path.resolve() for path in folders))
+    groups = {"Saved runs": folders} if folders else {}
+    for name, path in collections:
+        if not name.strip():
+            raise ValueError("Each collection needs a name.")
+        groups.setdefault(name, []).append(Path(path))
+    groups = {name: list(dict.fromkeys(path.resolve() for path in paths)) for name, paths in groups.items()}
+    folders = list(dict.fromkeys(path for paths in groups.values() for path in paths))
     if not folders or (len(folders) > 1 and out is None):
         raise ValueError("Provide at least one run and specify --out for a combined dashboard.")
     out = out or folders[0] / "dashboard.html"
@@ -226,7 +232,19 @@ def dashboard(folder, out=None):
     for folder, run in zip(folders, runs):
         if len(folders) > 1:
             run["name"] = f"{folder.parent.name}/{folder.name}"
-    data = {"runs": runs}
+    images = {}
+    for name, path in previews:
+        if name not in groups:
+            raise ValueError(f"No collection named {name!r} for this preview.")
+        if name in images:
+            raise ValueError(f"Provide one preview for collection {name!r}.")
+        content = Path(path).read_bytes()
+        if not content.startswith(b"\x89PNG\r\n\x1a\n"):
+            raise ValueError("A collection preview must be a PNG image.")
+        images[name] = png_url(content)
+    positions = {path: index for index, path in enumerate(folders)}
+    data = {"runs": runs, "collections": [dict(name=name, runs=[positions[path] for path in paths],
+                                              preview=images.get(name)) for name, paths in groups.items()]}
     serialised = json.dumps(data, ensure_ascii=True, separators=(",", ":"), allow_nan=False).replace("<", "\\u003c")
     template = files("hermae").joinpath("dashboard.html").read_text(encoding="utf-8")
     before, after = template.replace("@@TITLE@@", escape(title)).split("@@DATA@@")

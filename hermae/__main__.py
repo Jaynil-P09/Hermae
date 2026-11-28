@@ -47,14 +47,18 @@ def main():
     pair.add_argument("--transient-weights", type=Path)
     pair.add_argument("--device", default="cpu")
     view = commands.add_parser("dashboard", help="build an offline HTML view from saved run outputs")
-    view.add_argument("--run", required=True, action="append", type=Path,
+    view.add_argument("--run", action="append", type=Path, default=[],
                       help="saved run directory; repeat to combine results")
+    view.add_argument("--collection", action="append", nargs=2, default=[], metavar=("NAME", "RUN"),
+                      help="add a saved run to a named menu option")
+    view.add_argument("--collection-preview", action="append", nargs=2, default=[], metavar=("NAME", "PNG"),
+                      help="attach a PNG preview to a named collection")
     view.add_argument("--out", type=Path)
     args = parser.parse_args()
     if args.command == "dashboard":
         from .dashboard import dashboard
         try:
-            path = dashboard(args.run, args.out)
+            path = dashboard(args.run, args.out, collections=args.collection, previews=args.collection_preview)
         except (OSError, ValueError, KeyError) as exc:
             view.exit(1, f"hermae: {exc}\n")
         print(f"Dashboard written to {path}")
