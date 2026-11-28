@@ -114,9 +114,8 @@ def fit(images, target, validation, args, rates=None):
         key = (recovered, -alerts, -error) if error is not None else (-train_loss,)
         print(f"Transient CNN epoch {epoch}/{args.epochs}  loss {train_loss:.4f}"
               f"  validation {recovered} recovered, {alerts} control alerts", flush=True)
-        if checkpoint.observe(model, optimiser, key, train_loss=train_loss, validation_recovered=recovered,
-                              validation_control_alerts=alerts, validation_score_error=error, threshold=threshold):
-            break
+        checkpoint.observe(model, optimiser, key, train_loss=train_loss, validation_recovered=recovered,
+                           validation_control_alerts=alerts, validation_score_error=error, threshold=threshold)
     return checkpoint.restore(model), checkpoint
 
 
@@ -152,7 +151,7 @@ def main():
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     add_device_argument(parser)
-    optimization_arguments(parser, epochs=100, learning_rate=.0015, patience=15)
+    optimization_arguments(parser, learning_rate=.0015, patience=15)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()

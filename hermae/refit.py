@@ -12,6 +12,7 @@ import torch
 from . import train_galaxy, train_ranker, train_transient
 from .development import Benchmark, digest
 from .galaxy import GalaxyDetector
+from .training import DEFAULT_EPOCHS
 from .training_device import add_device_argument, resolve_device
 
 
@@ -26,21 +27,22 @@ def prior_report(path, split_hash):
     return report
 
 
-def schedule(prior, model, history_key, device, fields):
+def schedule(prior, model, history_key, device, fields, epochs):
     count = model["selected_epoch"]
     rows = model[history_key][:count]
     rates = [r["learning_rate"] for r in rows]
     if count < 1 or len(rows) != count or any(not math.isfinite(rate) or rate <= 0 for rate in rates):
         raise ValueError("The prior report must contain every learning rate through its selected epoch.")
-    args = SimpleNamespace(device=device, epochs=count, learning_rate=rates[0], seed=prior["seed"],
+    rates = (rates + [rates[-1]] * max(0, epochs - count))[:epochs]
+    args = SimpleNamespace(device=device, epochs=epochs, learning_rate=rates[0], seed=prior["seed"],
                            weight_decay=prior["weight_decay"], patience=prior["patience"],
                            **{name: prior[name] for name in fields})
     return args, rates
 
 
-def refit_galaxy(data, ids, source, folder, device):
+def refit_galaxy(data, ids, source, folder, device, epochs):
     prior = prior_report(source, data.split_hash)
-    args, rates = schedule(prior, prior, "history", device, ("batch_size", "crops_per_field"))
+    args, rates = schedule(prior, prior, "history", device, ("batch_size", "crops_per_field"), epochs)
     tensors, used = train_galaxy.crops(data, ids, np.random.default_rng(args.seed), args.crops_per_field)
     if not used:
         raise ValueError("No galaxy crops could be prepared.")
@@ -59,7 +61,7 @@ def refit_galaxy(data, ids, source, folder, device):
     return path, len(used)
 
 
-def refit_rankers(data, ids, source, folder, device, detector_path=None):
+def refit_rankers(data, ids, source, folder, device, epochs, detector_path=None):
     prior = prior_report(source, data.split_hash)
     backend = GalaxyDetector.load(detector_path, device) if detector_path else None
     fields, excluded = train_ranker.prepare(data, ids, backend)
@@ -69,7 +71,7 @@ def refit_rankers(data, ids, source, folder, device, detector_path=None):
     result = {}
     for mode in ("image_only", "catalogue_fusion"):
         use_catalogue = mode == "catalogue_fusion"
-        args, rates = schedule(prior, prior["models"][mode], "epoch_metrics", device, ("batch_fields",))
+        args, rates = schedule(prior, prior["models"][mode], "epoch_metrics", device, ("batch_fields",), epochs)
         model, progress, used = train_ranker.fit(fields, None, use_catalogue, args, rates)
         torch.save(dict(kind="hermae-host-v1", model=model.cpu().state_dict(), use_catalogue=use_catalogue,
                         review_gap=None, detector_sha256=checkpoint_hash, split_sha256=data.split_hash),
@@ -87,7 +89,7 @@ def refit_rankers(data, ids, source, folder, device, detector_path=None):
     return {mode: len(record["train_ids"]) for mode, record in result.items()}
 
 
-def refit_transient(data, manifest_path, source, folder, device, supplemental=None):
+def refit_transient(data, manifest_path, source, folder, device, epochs, supplemental=None):
     prior = prior_report(source, data.split_hash)
     manifest = prior_report(manifest_path, data.split_hash)
     if prior["manifest_sha256"] != digest(manifest_path):
@@ -104,7 +106,7 @@ def refit_transient(data, manifest_path, source, folder, device, supplemental=No
     images, target, audit = train_transient.training_examples(pair_inputs)
     print(f"Transient CNN | processed {len(pairs)} development pairs and found {len(audit)} labelled residuals",
           flush=True)
-    args, rates = schedule(prior, prior, "history", device, ("batch_size",))
+    args, rates = schedule(prior, prior, "history", device, ("batch_size",), epochs)
     model, progress = train_transient.fit(images, target, None, args, rates)
     torch.save(dict(kind="hermae-transient-v1", model=model.cpu().state_dict(), baseline_sigma=prior["baseline_sigma"],
                     threshold=prior["threshold"], split_sha256=data.split_hash), folder / "transient.pt")
@@ -132,8 +134,11 @@ def main():
     parser.add_argument("--supplemental-manifest", type=Path, help="extra verified development exposure pairs")
     parser.add_argument("--transient-only", action="store_true", help="refit only the transient classifier")
     parser.add_argument("--out", required=True, type=Path)
+    parser.add_argument("--epochs", type=int, default=DEFAULT_EPOCHS, help="epochs per model")
     add_device_argument(parser)
     args = parser.parse_args()
+    if args.epochs < 1:
+        parser.error("Epochs must be positive.")
     device, device_name = resolve_device(parser, args.device)
     torch.set_num_threads(4)
     data = Benchmark(args.v1)
@@ -148,19 +153,20 @@ def main():
     if any(out.iterdir()):
         parser.error("Choose a new or empty output directory for the refit.")
     if args.transient_only:
-        refit_transient(data, args.manifest, schedules["transient"], out, device, args.supplemental_manifest)
+        refit_transient(data, args.manifest, schedules["transient"], out, device, args.epochs, args.supplemental_manifest)
         print(f"Transient refit finished. Checkpoint and report are in {out}", flush=True)
         return
     for stage in stages:
         (out / stage).mkdir()
 
-    detector, galaxy_count = refit_galaxy(data, ids, schedules["galaxy"], out / "galaxy", device)
-    classical = refit_rankers(data, ids, schedules["ranker-classical"], out / "ranker-classical", device)
-    unet = refit_rankers(data, ids, schedules["ranker-unet"], out / "ranker-unet", device, detector)
-    transient = refit_transient(data, args.manifest, schedules["transient"], out / "transient", device,
+    detector, galaxy_count = refit_galaxy(data, ids, schedules["galaxy"], out / "galaxy", device, args.epochs)
+    classical = refit_rankers(data, ids, schedules["ranker-classical"], out / "ranker-classical", device, args.epochs)
+    unet = refit_rankers(data, ids, schedules["ranker-unet"], out / "ranker-unet", device, args.epochs, detector)
+    transient = refit_transient(data, args.manifest, schedules["transient"], out / "transient", device, args.epochs,
                                 args.supplemental_manifest)
     save_report(out / "report.json", split_sha256=data.split_hash, device=device, device_name=device_name,
-                development_fields=len(ids), reserved_fields=sum(s == "test" for s in data.splits.values()),
+                epochs_per_model=args.epochs, development_fields=len(ids),
+                reserved_fields=sum(s == "test" for s in data.splits.values()),
                 galaxy_fields=galaxy_count, ranker_classical_fields=classical, ranker_unet_fields=unet,
                 transient=transient, evaluation="none; this refit used both development partitions for training")
     print(f"Full development refit finished. Checkpoints and reports are in {out}", flush=True)

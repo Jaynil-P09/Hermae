@@ -178,8 +178,7 @@ def fit(tensors, validation, args, rates=None):
             continue
         dev_loss = validation_loss(model, validation, args.batch_size, args.device)
         print(f"Epoch {epoch}/{args.epochs}  loss {train_loss:.4f}  validation {dev_loss:.4f}", flush=True)
-        if checkpoint.observe(model, optimiser, (-dev_loss,), train_loss=train_loss, validation_loss=dev_loss):
-            break
+        checkpoint.observe(model, optimiser, (-dev_loss,), train_loss=train_loss, validation_loss=dev_loss)
     return checkpoint.restore(model), checkpoint
 
 
@@ -304,7 +303,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--v1", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
-    optimization_arguments(parser, epochs=100, learning_rate=.002, patience=12)
+    optimization_arguments(parser, learning_rate=.002, patience=12)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--crops-per-field", type=int, default=32)
     parser.add_argument("--seed", type=int, default=42)

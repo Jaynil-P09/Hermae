@@ -139,8 +139,7 @@ def fit(fields, validation, use_catalogue, args, rates=None):
         key = (top1, mrr) if mrr is not None else (-train_loss,)
         print(f"{mode} epoch {epoch}/{args.epochs}"
               f"  loss {train_loss:.4f}  {pool} validation top-1 {top1}", flush=True)
-        if checkpoint.observe(model, optimiser, key, train_loss=train_loss, validation_top1=top1, validation_mrr=mrr):
-            break
+        checkpoint.observe(model, optimiser, key, train_loss=train_loss, validation_top1=top1, validation_mrr=mrr)
     return checkpoint.restore(model), checkpoint, [field[0] for field in eligible]
 
 
@@ -184,7 +183,7 @@ def main():
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--galaxy-weights", type=Path, help="frozen CNN detector; omit for the classical detector")
     add_device_argument(parser)
-    optimization_arguments(parser, epochs=120, learning_rate=.001, patience=18)
+    optimization_arguments(parser, learning_rate=.001, patience=18)
     parser.add_argument("--batch-fields", type=int, default=8)
     parser.add_argument("--seed", default=42, type=int)
     args = parser.parse_args()

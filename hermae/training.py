@@ -3,12 +3,15 @@
 import math
 
 
-def optimization_arguments(parser, *, epochs, learning_rate, patience):
-    parser.add_argument("--epochs", type=int, default=epochs, help="maximum number of epochs")
+DEFAULT_EPOCHS = 150
+
+
+def optimization_arguments(parser, *, learning_rate, patience):
+    parser.add_argument("--epochs", type=int, default=DEFAULT_EPOCHS, help="number of epochs to complete")
     parser.add_argument("--learning-rate", type=float, default=learning_rate, help="initial AdamW learning rate")
     parser.add_argument("--weight-decay", type=float, default=.01)
     parser.add_argument("--patience", type=int, default=patience,
-                        help="epochs without validation improvement before stopping")
+                        help="validation plateau window for learning-rate reductions")
 
 
 def validate_optimization(parser, args):
@@ -43,7 +46,7 @@ class BestCheckpoint:
         self.history.append(dict(epoch=epoch, learning_rate=optimizer.param_groups[0]["lr"], **metrics))
         if self.rates is not None:
             self.best_epoch = epoch
-            return False
+            return
         if self.best_score is None or score > self.best_score:
             self.best_score = score
             self.best_epoch = epoch
@@ -51,8 +54,7 @@ class BestCheckpoint:
         stale = epoch - self.best_epoch
         if stale and stale % max(1, self.patience // 3) == 0:
             for group in optimizer.param_groups:
-                group["lr"] *= .5
-        return stale >= self.patience
+                group["lr"] = max(group["lr"] * .5, self.history[0]["learning_rate"] * .01)
 
     def restore(self, model):
         if self.rates is not None:

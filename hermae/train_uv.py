@@ -11,6 +11,7 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader, TensorDataset
 
 from .development import digest
+from .training import DEFAULT_EPOCHS
 from .training_device import add_device_argument, resolve_device
 from .uv import GALEX, SIZE, UVLocalizer, candidates, features, probability_map, read_uv, robust_scale, write_run
 
@@ -156,7 +157,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--epochs", type=int, default=18)
+    parser.add_argument("--epochs", type=int, default=DEFAULT_EPOCHS, help="number of epochs to complete")
     parser.add_argument("--samples", type=int, default=128, help="Training patches per GALEX image")
     parser.add_argument("--seed", type=int, default=42)
     add_device_argument(parser)
@@ -210,7 +211,7 @@ def main():
                   field_split=groups, photos_by_band={band: sum(row[3] == band for rows in fields.values()
                                                                 for row in rows) for band in GALEX},
                   training_patches=len(x), validation_patches=len(vx), test_patches=len(tx),
-                  checkpoint_epoch=checkpoint["epoch"], threshold=threshold, history=history,
+                  epochs=args.epochs, checkpoint_epoch=checkpoint["epoch"], threshold=threshold, history=history,
                   test={band: metrics(test_maps[[ex["band"] == band for ex in test]],
                                       [ex for ex in test if ex["band"] == band], threshold)
                         for band in GALEX},

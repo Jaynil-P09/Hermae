@@ -1,11 +1,12 @@
-"""Check that early stopping restores an independent copy of the best weights."""
+"""Check full schedules and independent copies of the best weights."""
 
 from importlib.util import find_spec
 import unittest
 
 if find_spec("torch"):
     import torch
-    from hermae.training import BestCheckpoint
+    from hermae.refit import schedule
+    from hermae.training import BestCheckpoint, DEFAULT_EPOCHS
 else:
     torch = None
 
@@ -20,7 +21,7 @@ class TrainingTest(unittest.TestCase):
             progress.start_epoch(optimizer)
             with torch.no_grad():
                 model.weight.fill_(i + 1.)
-            self.assertFalse(progress.observe(model, optimizer, (-i,), train_loss=float(i)))
+            progress.observe(model, optimizer, (-i,), train_loss=float(i))
         self.assertEqual([row["learning_rate"] for row in progress.history], [.02, .005])
         self.assertEqual(progress.restore(model).weight.item(), 2.)
 
@@ -30,12 +31,23 @@ class TrainingTest(unittest.TestCase):
             model.weight.fill_(2.)
         optimizer = torch.optim.AdamW(model.parameters(), lr=.01)
         selector = BestCheckpoint(patience=3)
-        self.assertFalse(selector.observe(model, optimizer, (4, .8)))
+        selector.observe(model, optimizer, (4, .8))
         with torch.no_grad():
             model.weight.fill_(3.)
-        self.assertFalse(selector.observe(model, optimizer, (4, .7)))
+        selector.observe(model, optimizer, (4, .7))
         self.assertEqual(optimizer.param_groups[0]["lr"], .005)
-        self.assertFalse(selector.observe(model, optimizer, (3, .9)))
-        self.assertTrue(selector.observe(model, optimizer, (3, .9)))
+        for _ in range(DEFAULT_EPOCHS - 2):
+            selector.observe(model, optimizer, (3, .9))
+        self.assertEqual(len(selector.history), 150)
+        self.assertEqual(optimizer.param_groups[0]["lr"], .0001)
         self.assertEqual(selector.best_epoch, 1)
         self.assertEqual(selector.restore(model).weight.item(), 2.)
+
+    def test_refit_extends_the_selected_rate_to_the_last_epoch(self):
+        prior = dict(seed=42, weight_decay=.01, patience=3)
+        model = dict(selected_epoch=2, history=[
+            dict(learning_rate=.01), dict(learning_rate=.005), dict(learning_rate=.001),
+        ])
+        args, rates = schedule(prior, model, "history", "cpu", (), DEFAULT_EPOCHS)
+        self.assertEqual(args.epochs, 150)
+        self.assertEqual(rates, [.01] + [.005] * 149)
