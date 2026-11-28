@@ -16,7 +16,8 @@ timestamp to the output directory.
 The launcher also opens the native **Hermae | Live training images** popup.
 It displays each training crop, candidate or stamp in the first epoch of each
 model and samples later epochs. The window uses the images and outputs from
-the optimizer's actual forward pass. Use **Pause playback** or adjust the
+the optimizer's actual forward pass. Resize or maximize the window to enlarge
+the images. They rearrange even during a pause. Use **Pause playback** or adjust the
 delay to inspect a frame. Closing the popup lets training continue in the
 terminal.
 

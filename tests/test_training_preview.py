@@ -8,12 +8,19 @@ import unittest
 
 import numpy as np
 
-from hermae.training_preview import TrainingPreview, captured_forward
+from hermae.training_preview import TrainingPreview, captured_forward, panel_layout
 
 if find_spec("torch"):
     import torch
 else:
     torch = None
+
+
+class PreviewLayoutTest(unittest.TestCase):
+    def test_reflows_to_maximize_image_size(self):
+        self.assertEqual(panel_layout(5, 1900, 880, 22, 6), (3, 2, 406))
+        self.assertEqual(panel_layout(5, 400, 710, 22, 6), (2, 3, 188))
+        self.assertEqual(panel_layout(5, 1250, 315, 22, 6), (5, 1, 238))
 
 
 @unittest.skipIf(torch is None, "requires the optional ML dependencies")
