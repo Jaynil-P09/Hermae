@@ -48,10 +48,39 @@ classifier selected epoch 5 of 20 and reproduced the development recovery
 and control-alert counts. The rerun used the development split for model
 selection.
 
-The figures below describe the frozen release runs in the tagged
-`hermae-v2-frozen-eval` checkout.
+## Refit on every eligible development image
+
+To refit after selecting schedules on the original development validation
+partition, run the command below. It combines the training and validation
+partitions, then replays the saved learning rates through each selected epoch.
+Reserved fields and the independent image-pair benchmark stay outside this
+fit. The refit reports training coverage and exclusions. Its host scores
+remain subject to review because the new weights lack a separately measured
+score-gap threshold.
+
+```powershell
+.venv/Scripts/python.exe -u -m hermae.refit --v1 ../Hermae_v1 --schedules results/quality-training --manifest results/ztf-development/manifest.json --out results/full-refit --device cuda
+```
+
+Pass `--supplemental-manifest results/ztf-cached-supplement/manifest.json` to
+include the recovered local ZTF pairs, and use `--transient-only` when
+you want to refit only that classifier. The supplement uses earlier
+same-quadrant references and matches the newer exposures to positive r-band
+alert timestamps. [ALeRCE detection fields](https://alerce.readthedocs.io/en/latest/models/detection.html)
+
+The local run used 119 usable coadds for the galaxy U-Net and 109–111
+uniquely labelled fields per host ranker. The expanded transient run
+processed 38 exposures in 24 pairs. Sixteen pairs supplied 49 labelled
+residuals, including 10 confirmed alerts. The 13 older multiband previews
+cover fields already in the coadd set. Five audited coadds lacked r-band
+weight, and one cached ZTF exposure lacked a verified later companion.
+Run reports are under `results/all-development-training`, with the expanded
+transient checkpoint in its `transient-expanded` subdirectory.
 
 ## Galaxy detector
+
+The figures in the remaining sections describe the frozen release runs in
+the tagged `hermae-v2-frozen-eval` checkout.
 
 The two-head U-Net learned footprint pixels and centre peaks from 1,536 crops
 across 96 development training fields. Training used Legacy Surveys galaxy

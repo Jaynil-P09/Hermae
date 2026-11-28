@@ -150,13 +150,14 @@ def validation_loss(model, tensors, batch_size, device):
     return float(np.mean(scores))
 
 
-def fit(tensors, validation, args):
+def fit(tensors, validation, args, rates=None):
     torch.manual_seed(args.seed)
     model = GalaxyNet().to(args.device)
     optimiser = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
     generator = torch.Generator().manual_seed(args.seed)
-    checkpoint = BestCheckpoint(args.patience)
+    checkpoint = BestCheckpoint(args.patience, rates)
     for epoch in range(1, args.epochs + 1):
+        checkpoint.start_epoch(optimiser)
         model.train()
         totals = []
         for indices in torch.randperm(len(tensors[0]), generator=generator).split(args.batch_size):
@@ -171,6 +172,10 @@ def fit(tensors, validation, args):
             optimiser.step()
             totals.append(float(score.detach()))
         train_loss = float(np.mean(totals))
+        if rates is not None:
+            print(f"Galaxy epoch {epoch}/{args.epochs}  loss {train_loss:.4f}", flush=True)
+            checkpoint.observe(model, optimiser, (-train_loss,), train_loss=train_loss)
+            continue
         dev_loss = validation_loss(model, validation, args.batch_size, args.device)
         print(f"Epoch {epoch}/{args.epochs}  loss {train_loss:.4f}  validation {dev_loss:.4f}", flush=True)
         if checkpoint.observe(model, optimiser, (-dev_loss,), train_loss=train_loss, validation_loss=dev_loss):

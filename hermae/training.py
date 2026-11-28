@@ -23,18 +23,27 @@ def validate_optimization(parser, args):
 class BestCheckpoint:
     """Keep the highest development score and lower the rate during plateaus."""
 
-    def __init__(self, patience):
+    def __init__(self, patience, rates=None):
         self.patience = patience
+        self.rates = rates
         self.best_epoch = 0
         self.best_score = None
         self.weights = None
         self.history = []
+
+    def start_epoch(self, optimizer):
+        if self.rates is not None:
+            for group in optimizer.param_groups:
+                group["lr"] = self.rates[len(self.history)]
 
     def observe(self, model, optimizer, score, **metrics):
         if not all(math.isfinite(value) for value in score):
             raise ValueError("Training produced a nonfinite validation score.")
         epoch = len(self.history) + 1
         self.history.append(dict(epoch=epoch, learning_rate=optimizer.param_groups[0]["lr"], **metrics))
+        if self.rates is not None:
+            self.best_epoch = epoch
+            return False
         if self.best_score is None or score > self.best_score:
             self.best_score = score
             self.best_epoch = epoch
@@ -46,6 +55,9 @@ class BestCheckpoint:
         return stale >= self.patience
 
     def restore(self, model):
+        if self.rates is not None:
+            print(f"Completed all {self.best_epoch} scheduled epochs", flush=True)
+            return model.eval()
         model.load_state_dict(self.weights)
         print(f"Selected epoch {self.best_epoch} of {len(self.history)}", flush=True)
         return model.eval()

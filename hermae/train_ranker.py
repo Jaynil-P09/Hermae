@@ -102,7 +102,7 @@ def validation_score(model, fields, pool, device):
     return sum(value == 1 for value in reciprocal), float(np.mean(reciprocal)) if reciprocal else None
 
 
-def fit(fields, validation, use_catalogue, args):
+def fit(fields, validation, use_catalogue, args, rates=None):
     torch.manual_seed(args.seed)
     rng = np.random.default_rng(args.seed)
     model = HostRanker(use_catalogue).to(args.device)
@@ -111,8 +111,9 @@ def fit(fields, validation, use_catalogue, args):
     if not eligible:
         raise ValueError("No training fields had a unique published counterpart in their candidate pool.")
     pool = "union" if use_catalogue else "image"
-    checkpoint = BestCheckpoint(args.patience)
+    checkpoint = BestCheckpoint(args.patience, rates)
     for epoch in range(1, args.epochs + 1):
+        checkpoint.start_epoch(optimiser)
         model.train()
         totals = []
         batches = (len(eligible) + args.batch_fields - 1) // args.batch_fields
@@ -128,10 +129,15 @@ def fit(fields, validation, use_catalogue, args):
             optimiser.step()
             totals.append(float(loss.detach()))
         train_loss = float(np.mean(totals))
+        mode = "Catalogue fusion" if use_catalogue else "Image-first"
+        if rates is not None:
+            print(f"{mode} epoch {epoch}/{args.epochs}  loss {train_loss:.4f}", flush=True)
+            checkpoint.observe(model, optimiser, (-train_loss,), train_loss=train_loss)
+            continue
         model.eval()
         top1, mrr = validation_score(model, validation, pool, args.device)
         key = (top1, mrr) if mrr is not None else (-train_loss,)
-        print(f"{'Catalogue fusion' if use_catalogue else 'Image-first'} epoch {epoch}/{args.epochs}"
+        print(f"{mode} epoch {epoch}/{args.epochs}"
               f"  loss {train_loss:.4f}  {pool} validation top-1 {top1}", flush=True)
         if checkpoint.observe(model, optimiser, key, train_loss=train_loss, validation_top1=top1, validation_mrr=mrr):
             break

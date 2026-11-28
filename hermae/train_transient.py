@@ -62,21 +62,30 @@ def training_examples(training):
                 target.append(label)
                 images.append(image)
                 audit.append(dict(event=pair["event"], pair_kind=pair["kind"], label=label,
+                                  reference_sha256=pair["reference"]["sha256"], science_sha256=pair["science"]["sha256"],
                                   candidate=candidates[i]["transient_id"]))
     if set(target) != {0, 1}:
         raise ValueError("Training requires recovered alerts and dipole artifact examples.")
     return torch.from_numpy(np.stack(images)), torch.tensor(target, dtype=torch.float32), audit
 
 
-def fit(images, target, validation, args):
+def fit(images, target, validation, args, rates=None):
     torch.manual_seed(args.seed)
     rng = np.random.default_rng(args.seed)
     model = TransientNet().to(args.device)
     optimiser = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
     groups = [(target == i).nonzero().flatten().numpy() for i in (0, 1)]
-    checkpoint = BestCheckpoint(args.patience)
+    checkpoint = BestCheckpoint(args.patience, rates)
+    per_class = max(map(len, groups))
     for epoch in range(1, args.epochs + 1):
-        one_each = np.stack([rng.choice(group, size=max(map(len, groups)), replace=True) for group in groups], axis=1)
+        checkpoint.start_epoch(optimiser)
+        if rates is None:
+            balanced = [rng.choice(group, size=per_class, replace=True) for group in groups]
+        else:
+            # Visit every labelled stamp before repeating examples from the smaller class.
+            balanced = [rng.permutation(np.concatenate((group, rng.choice(group, per_class - len(group)))))
+                        for group in groups]
+        one_each = np.stack(balanced, axis=1)
         totals = []
         for batch in torch.from_numpy(one_each.reshape(-1)).split(args.batch_size):
             batch_images = images[batch].to(args.device)
@@ -89,6 +98,10 @@ def fit(images, target, validation, args):
             optimiser.step()
             totals.append(float(loss.detach()))
         train_loss = float(np.mean(totals))
+        if rates is not None:
+            print(f"Transient CNN epoch {epoch}/{args.epochs}  loss {train_loss:.4f}", flush=True)
+            checkpoint.observe(model, optimiser, (-train_loss,), train_loss=train_loss)
+            continue
         guessed, threshold, options = validation_metrics(model.eval(), validation, args.device)
         operating_point = options[threshold]
         positive = [guesses[index] for (_, _, _, index, _), guesses in zip(validation, guessed)
