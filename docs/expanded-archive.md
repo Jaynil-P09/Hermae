@@ -65,10 +65,11 @@ index to exclude overlapping coordinates.
 ```powershell
 .\.venv\Scripts\python.exe -m tools.expand_archive --part optical --device cuda
 .\.venv\Scripts\python.exe -m tools.expand_archive --part uv
-.\.venv\Scripts\python.exe -m hermae.train_uv --manifest results/expanded-archive/uv.json --out results/expanded-archive/uv-model --epochs 24 --samples 192 --device cuda
+.\.venv\Scripts\python.exe -m hermae.train_uv --manifest results/expanded-archive/uv.json --out results/training-150/uv --epochs 150 --samples 192 --device cuda
 ```
 
-Download the two original archive files into `results/expanded-archive/swift`
+The archived Swift example below uses the original checkpoint associated with
+the figures above. Download the two original archive files into `results/expanded-archive/swift`
 with their original names. Reference uses HDU 2. Science uses HDU 1.
 The supplied seeing is the NASA UVW2 calibration FWHM.
 [Reference obsid 00032094014](https://heasarc.gsfc.nasa.gov/FTP/swift/data/obs/2011_09/00032094014/uvot/image/sw00032094014uw2_sk.img.gz)

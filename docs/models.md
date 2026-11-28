@@ -7,6 +7,12 @@ GPU, or `--device cpu` for CPU execution. Each run records the selected device
 and its name in `report.json`. The commands below write new checkpoints to
 `results/quality-training`. Use a new output folder to keep multiple runs.
 
+To run all seven v2 checkpoints for 150 epochs each, open PowerShell and run
+`powershell -NoExit -ExecutionPolicy Bypass -File tools/train_150.ps1`.
+The console prints each epoch, and `results/training-150` receives both logs,
+checkpoints, and a `completed.json` count for every model. A repeat run adds a
+timestamp to the output directory.
+
 ```powershell
 .venv/Scripts/python.exe -m hermae.train_galaxy --v1 ../Hermae_v1 --out results/quality-training/galaxy --device cuda
 .venv/Scripts/python.exe -m hermae.train_ranker --v1 ../Hermae_v1 --out results/quality-training/ranker-classical --device cuda
@@ -19,15 +25,17 @@ If you need to acquire ZTF pairs again, run
 and pass the new manifest to the transient trainer. Use the archived acquisition
 manifest and its FITS hashes for the exact release cohort.
 
-| Trainer | Epoch cap | Early-stop patience | Batch | Initial learning rate |
+| Trainer | Default epochs | Plateau window | Batch | Initial learning rate |
 | --- | ---: | ---: | --- | ---: |
-| Galaxy U-Net | 100 | 12 | 32 crops | 0.002 |
-| Host ranker | 120 | 18 | 8 fields | 0.001 |
-| Transient classifier | 100 | 15 | 32 residuals | 0.0015 |
+| Galaxy U-Net | 150 | 12 | 32 crops | 0.002 |
+| Host ranker | 150 | 18 | 8 fields | 0.001 |
+| Optical transient classifier | 150 | 15 | 32 residuals | 0.0015 |
+| UV localizer | 150 | Fixed rate | 48 patches | 0.0015 |
 
 The galaxy trainer samples up to 32 crops per field. The default seed is 42
 and AdamW weight decay is 0.01. The trainers halve the rate during a
-validation plateau and restore the selected checkpoint at the end. The
+validation plateau and restore the selected checkpoint after all 150
+epochs. The learning rate can fall to 1% of its initial value. The
 galaxy trainer selects by loss on separate validation crops. Host rankers
 select by top-one validation accuracy and mean reciprocal rank on the
 image or union pool. The transient trainer prioritizes confirmed recovery
@@ -52,7 +60,8 @@ selection.
 
 To refit after selecting schedules on the original development validation
 partition, run the command below. It combines the training and validation
-partitions, then replays the saved learning rates through each selected epoch.
+partitions, replays the saved learning rates through each selected epoch,
+and holds the last rate for the remainder of the 150-epoch run.
 Reserved fields and the independent image-pair benchmark stay outside this
 fit. The refit reports training coverage and exclusions. Its host scores
 remain subject to review because the new weights lack a separately measured
