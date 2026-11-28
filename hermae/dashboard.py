@@ -148,6 +148,13 @@ def known(folder, run):
     layers = [layer("Host association", "Overlay", saved_png(folder, run),
                     "The full field shows the source footprints. The detail connects the supernova position with the highest-ranked host candidate.",
                     summary=run, legend=legend)]
+    if run.get("color_view"):
+        color = run["color_view"]
+        path = folder / color["file"]
+        if path.parent == folder and path.is_file() and digest(path) == color["sha256"]:
+            layers.insert(0, layer("Optical color composite", "Archive g/r/z", png_url(path.read_bytes()),
+                                   "Registered g, r and z survey planes map to blue, green and red. "
+                                   "Open Host association for the higher-resolution r-band measurements."))
     view = science_preview(run["input"])
     if view:
         layers.append(layer("Original r-band field", "Science pixels", view,
@@ -233,6 +240,30 @@ def survey(run):
     return layers, [table_data], None
 
 
+def ultraviolet(folder, run):
+    marks = (("green", "Ranked CNN peak"),)
+    if run["evidence"] == "synthetic_injection":
+        marks += (("amber", "Injected source position"),)
+    if run.get("comparison_position"):
+        marks += (("amber", "Published position for comparison"),)
+    layers = []
+    for filename, title, group, reading, legend in (
+        ("uv-science.png", "Science with candidate boxes", "UV localization",
+         "Ranked boxes mark peaks above the model cutoff on the newer image.", marks),
+        ("uv-residual.png", "Signed UV residual", "Subtraction",
+         "Warm pixels brightened after alignment and flux matching. Cool pixels faded.",
+         marks + (("warm", "Brighter"), ("blue", "Fainter"))),
+        ("uv-score.png", "UV CNN score", "Model output",
+         "Brighter pixels have higher model scores. Inspect the residual and coordinates to review each peak.", marks),
+        ("uv-reference.png", "Aligned UV reference", "Reference pixels",
+         "The earlier image shares the same display grid and intensity stretch as the science image.", ()),
+    ):
+        path = folder / filename
+        image = png_url(path.read_bytes()) if filename in run["files"] and path.is_file() else None
+        layers.append(layer(title, group, image, reading, legend=legend))
+    return layers, [table(folder, "uv-candidates.csv", "UV residual candidates")], None
+
+
 def file_link(path, output_parent):
     path = path.resolve()
     try:
@@ -257,6 +288,8 @@ def run_payload(folder, output_parent):
     mode = summary["mode"]
     if mode == "survey_image":
         layers, tables, comparison = survey(summary)
+    elif mode == "uv_search":
+        layers, tables, comparison = ultraviolet(folder, summary)
     elif mode in {"known_position", "pair_search"}:
         layers, tables, comparison = (pair if mode == "pair_search" else known)(folder, summary)
     else:
@@ -266,6 +299,11 @@ def run_payload(folder, output_parent):
         source = Path(summary["input"]["path"])
         if source.is_file() and digest(source) == summary["input"]["sha256"]:
             artifacts.append(file_link(source, output_parent))
+    if mode == "uv_search":
+        for entry in summary.get("inputs", {}).values():
+            source = Path(entry["path"])
+            if source.is_file() and digest(source) == entry["sha256"]:
+                artifacts.append(file_link(source, output_parent))
     return dict(name=summary.get("display_name", folder.name), summary=summary, layers=layers, tables=tables,
                 comparison=comparison, artifacts=artifacts)
 

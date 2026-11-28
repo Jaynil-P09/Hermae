@@ -345,6 +345,19 @@
   }
   function finding(view) {
     const s = run.summary;
+    if (s.mode === "uv_search") {
+      const simulation = s.evidence === "synthetic_injection", top = s.top_candidate;
+      const facts = [["UV filter",s.band.toUpperCase()],["Score cutoff",fmt(s.threshold,3)]];
+      if (top) facts.push(["Top RA",fmt(top.ra_deg,6)+"°"],["Top Dec",fmt(top.dec_deg,6)+"°"]);
+      if (simulation) facts.push(["Injection offset",fmt(s.localization_error_px,2)+" px"]);
+      else facts.push(["Reference MJD",fmt(s.epoch_mjd[0],3)],["Science MJD",fmt(s.epoch_mjd[1],3)]);
+      if (s.comparison_position?.nearest_arcsec != null) facts.push(
+        ["Nearest to published position",arcsec(s.comparison_position.nearest_arcsec)]);
+      const body = simulation ? "A simulated point source was added to a real, held-out GALEX field. The cross marks the injected location."
+        : "These peaks flag UV brightness changes for review. " +
+          (s.filter_transfer ? "This filter is outside the GALEX training passbands." : "");
+      return [simulation ? "Held-out injection" : "Archival epoch comparison",body,facts];
+    }
     if (s.mode === "survey_image") {
       return [s.finding_title,s.finding,[["Survey",s.input.source],["Passband",s.input.band],
         ["Published host",s.reported_host],["Finite pixels",coverage(s.input.valid_fraction)]]];
@@ -353,8 +366,13 @@
       const result = hostFinding(view.summary);
       if (view.transient) result[2].unshift(["Residual peak",sigma(view.transient.peak_sigma)]);
       if (s.survey_origin?.reported_host) result[2].push(["Published host name",s.survey_origin.reported_host]);
+      if (s.archive_host) result[2].push(["Published host name",s.archive_host]);
       return result;
     }
+    if (view.title === "Optical color composite") return ["Registered optical bands",
+      "The color view shows the larger field around the supernova coordinates.",
+      [["Survey",s.survey_origin],["Published host",s.archive_host],["Display scale",arcsec(s.color_view.pixel_scale_arcsec)+"/px"],
+       ["Model input","Native r-band cutout"]]];
     if (view.title === "Segmentation map") return ["Source footprints",
       "The detector recorded " + s.detections + " footprints. The full-frame table provides measurements for each source.",[]];
     if (view.title === "Original r-band field") return ["Input coverage",
@@ -466,12 +484,17 @@
   function selectRun(index) {
     run = runs[index];
     const s = run.summary, pair = s.mode === "pair_search", survey = s.mode === "survey_image";
-    text("workflow",survey ? "Archive FITS" : pair ? "Image-pair search" : "Known-position search");
-    text("page-title",survey ? s.view_title : pair ? "Blind transient search" : "Host galaxy search");
+    const uv = s.mode === "uv_search";
+    text("workflow",uv ? s.evidence === "synthetic_injection" ? "UV / injection test" : "UV / archive epochs"
+      : survey ? "Archive FITS" : pair ? "Image-pair search" : "Known-position search");
+    text("page-title",uv ? "UV transient localization" : survey ? s.view_title : pair ? "Blind transient search" : "Host galaxy search");
     text("run-name",run.comparison?.event_id ? run.comparison.event_id + " · " + run.name : run.name);
     text("run-status",status(s.status));
-    el("run-status").className = "status " + (needsReview(s.status) ? "review" : survey || s.status.startsWith("no_") ? "neutral" : "");
-    definitions(el("metrics"),survey
+    el("run-status").className = "status " + (needsReview(s.status) || uv && s.candidates ? "review" : survey || s.status.startsWith("no_") ? "neutral" : "");
+    definitions(el("metrics"),uv
+      ? [["UV filter",s.band.toUpperCase()],["Ranked peaks",fmt(s.candidates,0)],
+        ["Searchable overlap",coverage(s.coverage)],["Peak score",fmt(s.top_candidate?.score,3)]]
+      : survey
       ? [["Passband",s.input.band],["Image dimensions",s.input.shape_yx.slice().reverse().join(" × ")],
         ["Finite pixels",coverage(s.input.valid_fraction)],["Target RA",fmt(s.sn.ra_deg,5)+"°"]]
       : pair
@@ -502,11 +525,13 @@
   }
   function showCollectionResults(picker) {
     const selectedRuns = currentCollection.runs.map(index => runs[index]);
-    const visible = selectedRuns.some(item => item.summary.mode === "survey_image");
+    const visible = selectedRuns.some(item => item.summary.mode === "survey_image" ||
+      item.summary.mode === "uv_search" || item.summary.color_view);
     el("collection-results").hidden = !visible;
     el("collection-grid").replaceChildren(...(visible ? selectedRuns : []).map((item,index) => {
       const s = item.summary, survey = s.mode === "survey_image";
-      const description = survey ? "Survey context · " + s.input.band
+      const description = s.mode === "uv_search" ? s.band.toUpperCase() + " · " + s.candidates + " ranked peaks"
+        : survey ? "Survey context · " + s.input.band
         : fmt(s.detections,0) + " detections · " + fmt(s.candidates,0) + " host candidates";
       const button = node("button",undefined,"result-card"), info = node("span");
       button.type = "button";
