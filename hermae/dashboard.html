@@ -360,7 +360,7 @@
     }
     if (s.mode === "survey_image") {
       return [s.finding_title,s.finding,[["Survey",s.input.source],["Passband",s.input.band],
-        ["Published host",s.reported_host],["Finite pixels",coverage(s.input.valid_fraction)]]];
+        ["Published host",s.reported_host],[s.input.coverage_metric || "Finite pixels",coverage(s.input.valid_fraction)]]];
     }
     if (view.summary) {
       const result = hostFinding(view.summary);
@@ -496,7 +496,7 @@
         ["Searchable overlap",coverage(s.coverage)],["Peak score",fmt(s.top_candidate?.score,3)]]
       : survey
       ? [["Passband",s.input.band],["Image dimensions",s.input.shape_yx.slice().reverse().join(" × ")],
-        ["Finite pixels",coverage(s.input.valid_fraction)],["Target RA",fmt(s.sn.ra_deg,5)+"°"]]
+        [s.input.coverage_metric || "Finite pixels",coverage(s.input.valid_fraction)],["Target RA",fmt(s.sn.ra_deg,5)+"°"]]
       : pair
       ? [["Residual detections",fmt(s.detections,0)],["Retained candidates",fmt(s.candidates,0)],
         ["Usable overlap",coverage(s.overlap_fraction)],["Detection threshold",sigma(s.transient_sigma)]]
@@ -525,7 +525,7 @@
   }
   function showCollectionResults(picker) {
     const selectedRuns = currentCollection.runs.map(index => runs[index]);
-    const visible = selectedRuns.some(item => item.summary.mode === "survey_image" ||
+    const visible = selectedRuns.length <= 16 && selectedRuns.some(item => item.summary.mode === "survey_image" ||
       item.summary.mode === "uv_search" || item.summary.color_view);
     el("collection-results").hidden = !visible;
     el("collection-grid").replaceChildren(...(visible ? selectedRuns : []).map((item,index) => {

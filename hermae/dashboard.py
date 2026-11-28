@@ -223,7 +223,7 @@ def survey(run):
     if path.is_file() and digest(path) == entry["sha256"]:
         values = fits.getdata(path, entry.get("science_hdu", 0))
         if values.ndim == 2:
-            kind = "ultraviolet" if entry["band"] == "near ultraviolet" else "science"
+            kind = "ultraviolet" if "ultraviolet" in entry["band"] else "science"
             preview = raster(values, kind, target=run["sn"]["pixel"])
     layers = [layer(run["view_title"], "Survey image", preview,
                     "The cross marks the published supernova coordinates on the archive pixels.",
@@ -233,7 +233,7 @@ def survey(run):
     rows = [("RA", run["sn"]["ra_deg"], "deg"), ("Declination", run["sn"]["dec_deg"], "deg"),
             ("Image width", width, "px"), ("Image height", height, "px"),
             ("Target x", x, "px"), ("Target y", y, "px"),
-            ("Finite pixels", 100 * entry["valid_fraction"], "%"),
+            (entry.get("coverage_metric", "Finite pixels"), 100 * entry["valid_fraction"], "%"),
             ("Passband", entry["band"], "")]
     table_data = dict(title="Survey measurements", filename="survey-measurements.csv", rows=[
         dict(metric=name, value=str(value), unit=unit) for name, value, unit in rows])
@@ -293,7 +293,7 @@ def run_payload(folder, output_parent):
     elif mode in {"known_position", "pair_search"}:
         layers, tables, comparison = (pair if mode == "pair_search" else known)(folder, summary)
     else:
-        raise ValueError("Select a top-level known-position, pair-search or survey-image result directory.")
+        raise ValueError("Select a top-level known-position, pair-search, UV-search or survey-image result directory.")
     artifacts = artifact_links(folder, summary["files"], output_parent)
     if summary.get("survey_origin") or mode == "survey_image":
         source = Path(summary["input"]["path"])
