@@ -1,4 +1,8 @@
-param([string]$Output = "results/training-150")
+param(
+    [string]$Output = "results/training-150",
+    [ValidateSet("first-pass", "all", "off")]
+    [string]$Preview = "first-pass"
+)
 
 Set-Location (Join-Path $PSScriptRoot "..")
 $Host.UI.RawUI.WindowTitle = "Hermae | CUDA training | 150 epochs per model"
@@ -11,6 +15,10 @@ $Output = (Resolve-Path $Output).Path
 $refit = Join-Path $Output "refit"
 $uv = Join-Path $Output "uv"
 $epochs = 150
+$previewArgs = @()
+if ($Preview -ne "off") {
+    $previewArgs = @("--live-preview", $Preview)
+}
 
 function Read-Report($Path) {
     Get-Content -Raw -LiteralPath $Path -ErrorAction Stop | ConvertFrom-Json
@@ -25,7 +33,7 @@ $refitArgs = @(
     "--supplemental-manifest", "results/ztf-cached-supplement/manifest.json",
     "--out", $refit, "--epochs", $epochs, "--device", "cuda"
 )
-& $python @refitArgs 2>&1 | ForEach-Object { $_.ToString() } | Tee-Object -FilePath (Join-Path $Output "refit.log")
+& $python @refitArgs @previewArgs 2>&1 | ForEach-Object { $_.ToString() } | Tee-Object -FilePath (Join-Path $Output "refit.log")
 if ($LASTEXITCODE -ne 0) { throw "Development refit failed. See refit.log." }
 
 Write-Host "Stage 2/2  GALEX UV localizer"
@@ -33,7 +41,7 @@ $uvArgs = @(
     "-u", "-m", "hermae.train_uv", "--manifest", "results/expanded-archive/uv.json",
     "--out", $uv, "--epochs", $epochs, "--samples", 192, "--device", "cuda"
 )
-& $python @uvArgs 2>&1 | ForEach-Object { $_.ToString() } | Tee-Object -FilePath (Join-Path $Output "uv.log")
+& $python @uvArgs @previewArgs 2>&1 | ForEach-Object { $_.ToString() } | Tee-Object -FilePath (Join-Path $Output "uv.log")
 if ($LASTEXITCODE -ne 0) { throw "UV training failed. See uv.log." }
 
 $galaxy = Read-Report (Join-Path $refit "galaxy/report.json")

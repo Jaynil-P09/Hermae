@@ -13,6 +13,18 @@ The console prints each epoch, and `results/training-150` receives both logs,
 checkpoints, and a `completed.json` count for every model. A repeat run adds a
 timestamp to the output directory.
 
+The launcher also opens the native **Hermae | Live training images** popup.
+It displays each training crop, candidate or stamp in the first epoch of each
+model and samples later epochs. The window uses the images and outputs from
+the optimizer's actual forward pass. Use **Pause playback** or adjust the
+delay to inspect a frame. Closing the popup lets training continue in the
+terminal.
+
+Add `-Preview all` to the PowerShell launcher to watch every training image
+in every epoch. Playback can slow the run in this mode. Use
+`-Preview off` for terminal-only training. Individual Python trainers and
+`hermae.refit` accept `--live-preview` or `--live-preview all`.
+
 ```powershell
 .venv/Scripts/python.exe -m hermae.train_galaxy --v1 ../Hermae_v1 --out results/quality-training/galaxy --device cuda
 .venv/Scripts/python.exe -m hermae.train_ranker --v1 ../Hermae_v1 --out results/quality-training/ranker-classical --device cuda
